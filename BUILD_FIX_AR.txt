@@ -1,0 +1,30 @@
+حل مشكلة Kotlin cache على Windows
+=================================
+
+هذه النسخة تضيف workaround لخطأ:
+Could not close incremental caches
+Storage ... is already registered
+
+التغييرات في android/gradle.properties:
+- kotlin.incremental=false
+- kotlin.incremental.useClasspathSnapshot=false
+- kotlin.compiler.execution.strategy=in-process
+- org.gradle.caching=false
+- org.gradle.parallel=false
+- org.gradle.workers.max=1
+- org.gradle.daemon=false
+
+طريقة البناء المفضلة:
+1) أغلق Android Studio و VS Code إن أمكن قبل أول بناء.
+2) شغّل build_apk.bat من جذر المشروع.
+
+أو يدويًا من PowerShell:
+cd E:\Android\watsapseed
+cd android
+.\gradlew.bat --stop
+cd ..
+flutter clean
+flutter pub get
+flutter build apk --release --android-skip-build-dependency-validation
+
+ملاحظة: تعطيل incremental compilation قد يجعل أول build أبطأ، لكنه يتجنب تضارب كاش Kotlin الذي ظهر في url_launcher_android و shared_preferences_android.
