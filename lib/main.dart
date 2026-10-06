@@ -937,19 +937,24 @@ class _SettingsPageState extends State<SettingsPage> {
             const SizedBox(height: 8),
             Card(
               clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  for (final style in AppFontStyle.values)
-                    RadioListTile<AppFontStyle>(
-                      value: style,
-                      groupValue: selectedFontStyle,
-                      onChanged: (value) {
-                        if (value != null) _changeFont(value);
-                      },
-                      title: Text(style.title),
-                      subtitle: Text(style.sample, style: style.sampleStyle),
-                    ),
-                ],
+              child: RadioGroup<AppFontStyle>(
+                groupValue: selectedFontStyle,
+                onChanged: (value) {
+                  if (value != null) _changeFont(value);
+                },
+                child: Column(
+                  children: [
+                    for (final style in AppFontStyle.values)
+                      RadioListTile<AppFontStyle>(
+                        value: style,
+                        title: Text(style.title),
+                        subtitle: Text(
+                          style.sample,
+                          style: style.sampleStyle,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 18),
