@@ -8,7 +8,7 @@ plugins {
 def generatedLauncherResDir = file("$buildDir/generated/launcher-res")
 
 tasks.register("generateLauncherIcons") {
-    def sourceFile = file("src/main/res/mipmap-xxxhdpi/ic_launcher.png")
+    def sourceFile = file("../../assets/icons/app_icon.png")
 
     inputs.file(sourceFile)
     outputs.dir(generatedLauncherResDir)
@@ -23,11 +23,16 @@ tasks.register("generateLauncherIcons") {
             throw new GradleException("Unable to decode launcher icon: ${sourceFile}")
         }
 
+        if (generatedLauncherResDir.exists()) {
+            generatedLauncherResDir.deleteDir()
+        }
+
         def sizes = [
-            mdpi  : 48,
-            hdpi  : 72,
-            xhdpi : 96,
-            xxhdpi: 144,
+            mdpi   : 48,
+            hdpi   : 72,
+            xhdpi  : 96,
+            xxhdpi : 144,
+            xxxhdpi: 192,
         ]
 
         sizes.each { density, size ->
