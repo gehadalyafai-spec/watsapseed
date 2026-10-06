@@ -235,89 +235,13 @@ class _StartupLogo extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox.square(
       dimension: size,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF11C9E8),
-              Color(0xFF087BAA),
-              Color(0xFF064D83),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(size * 0.22),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x33000000),
-              blurRadius: 18,
-              offset: Offset(0, 8),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(size * 0.22),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              const Positioned.fill(
-                child: CustomPaint(painter: _StartupDotsPainter()),
-              ),
-              Icon(
-                Icons.forum_outlined,
-                size: size * 0.58,
-                color: Colors.white,
-              ),
-              Transform.translate(
-                offset: Offset(size * 0.03, 0),
-                child: Icon(
-                  Icons.arrow_forward_rounded,
-                  size: size * 0.34,
-                  color: const Color(0xFF2EEBFA),
-                ),
-              ),
-            ],
-          ),
-        ),
+      child: Image.asset(
+        'assets/icons/app_icon.png',
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
       ),
     );
   }
-}
-
-class _StartupDotsPainter extends CustomPainter {
-  const _StartupDotsPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-
-    for (var row = -5; row <= 5; row++) {
-      for (var col = -5; col <= 5; col++) {
-        final distance = (row * row + col * col).toDouble();
-        if (distance > 45) continue;
-
-        final radius = (size.width * 0.0125) *
-            (1 - (distance / 70)).clamp(0.35, 1.0).toDouble();
-        final paint = Paint()
-          ..color = const Color(0xFF27D7ED).withValues(
-            alpha: (0.62 - distance / 110).clamp(0.14, 0.62).toDouble(),
-          );
-
-        canvas.drawCircle(
-          center +
-              Offset(
-                col * size.width * 0.072,
-                row * size.height * 0.072,
-              ),
-          radius,
-          paint,
-        );
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _StartupDotsPainter oldDelegate) => false;
 }
 
 class Country {
