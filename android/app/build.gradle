@@ -4,6 +4,70 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+
+def generatedLauncherResDir = file("$buildDir/generated/launcher-res")
+
+tasks.register("generateLauncherIcons") {
+    def sourceFile = file("src/main/res/mipmap-xxxhdpi/ic_launcher.png")
+
+    inputs.file(sourceFile)
+    outputs.dir(generatedLauncherResDir)
+
+    doLast {
+        if (!sourceFile.exists()) {
+            throw new GradleException("Missing high-quality launcher icon: ${sourceFile}")
+        }
+
+        def sourceImage = javax.imageio.ImageIO.read(sourceFile)
+        if (sourceImage == null) {
+            throw new GradleException("Unable to decode launcher icon: ${sourceFile}")
+        }
+
+        def sizes = [
+            mdpi  : 48,
+            hdpi  : 72,
+            xhdpi : 96,
+            xxhdpi: 144,
+        ]
+
+        sizes.each { density, size ->
+            def outputDir = new File(
+                generatedLauncherResDir,
+                "mipmap-${density}",
+            )
+            outputDir.mkdirs()
+
+            def outputImage = new java.awt.image.BufferedImage(
+                size,
+                size,
+                java.awt.image.BufferedImage.TYPE_INT_ARGB,
+            )
+            def graphics = outputImage.createGraphics()
+
+            try {
+                graphics.setRenderingHint(
+                    java.awt.RenderingHints.KEY_INTERPOLATION,
+                    java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC,
+                )
+                graphics.setRenderingHint(
+                    java.awt.RenderingHints.KEY_RENDERING,
+                    java.awt.RenderingHints.VALUE_RENDER_QUALITY,
+                )
+                graphics.setRenderingHint(
+                    java.awt.RenderingHints.KEY_ANTIALIASING,
+                    java.awt.RenderingHints.VALUE_ANTIALIAS_ON,
+                )
+                graphics.drawImage(sourceImage, 0, 0, size, size, null)
+            } finally {
+                graphics.dispose()
+            }
+
+            def outputFile = new File(outputDir, "ic_launcher.png")
+            javax.imageio.ImageIO.write(outputImage, "png", outputFile)
+        }
+    }
+}
+
 android {
     namespace "com.example.watsapseed"
     compileSdk flutter.compileSdkVersion
@@ -29,6 +93,16 @@ android {
             signingConfig signingConfigs.debug
         }
     }
+
+    sourceSets {
+        main {
+            res.srcDir generatedLauncherResDir
+        }
+    }
+}
+
+tasks.named("preBuild").configure {
+    dependsOn tasks.named("generateLauncherIcons")
 }
 
 kotlin {
