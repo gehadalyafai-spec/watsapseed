@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -75,12 +77,30 @@ class QuickWhatsAppApp extends StatefulWidget {
 class _QuickWhatsAppAppState extends State<QuickWhatsAppApp> {
   late bool isDarkMode;
   late AppFontStyle fontStyle;
+  Timer? _startupSplashTimer;
+  bool _showStartupSplash = true;
 
   @override
   void initState() {
     super.initState();
     isDarkMode = widget.initialDarkMode;
     fontStyle = widget.initialFontStyle;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startupSplashTimer = Timer(
+        const Duration(seconds: 2),
+        () {
+          if (!mounted) return;
+          setState(() => _showStartupSplash = false);
+        },
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _startupSplashTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> changeTheme(bool value) async {
@@ -162,6 +182,52 @@ class _QuickWhatsAppAppState extends State<QuickWhatsAppApp> {
         onThemeChanged: changeTheme,
         onFontChanged: changeFont,
       ),
+      builder: (context, child) {
+        final screenWidth = MediaQuery.sizeOf(context).width;
+        final logoSize =
+            (screenWidth * 0.50).clamp(170.0, 220.0).toDouble();
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            child ?? const SizedBox.shrink(),
+            IgnorePointer(
+              ignoring: !_showStartupSplash,
+              child: AnimatedOpacity(
+                opacity: _showStartupSplash ? 1 : 0,
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.easeOutCubic,
+                child: ColoredBox(
+                  color: Colors.white,
+                  child: Center(
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(
+                        begin: 0.94,
+                        end: 1,
+                      ),
+                      duration: const Duration(milliseconds: 650),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, scale, logo) {
+                        return Transform.scale(
+                          scale: scale,
+                          child: logo,
+                        );
+                      },
+                      child: Image.asset(
+                        'assets/icons/app_icon.png',
+                        width: logoSize,
+                        height: logoSize,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
