@@ -297,10 +297,10 @@ class _StartupDotsPainter extends CustomPainter {
         if (distance > 45) continue;
 
         final radius = (size.width * 0.0125) *
-            (1 - (distance / 70)).clamp(0.35, 1.0);
+            (1 - (distance / 70)).clamp(0.35, 1.0).toDouble();
         final paint = Paint()
           ..color = const Color(0xFF27D7ED).withValues(
-            alpha: (0.62 - distance / 110).clamp(0.14, 0.62),
+            alpha: (0.62 - distance / 110).clamp(0.14, 0.62).toDouble(),
           );
 
         canvas.drawCircle(
