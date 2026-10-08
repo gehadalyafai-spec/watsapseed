@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 enum AppFontStyle { tajawal, cairo, system }
@@ -129,6 +132,7 @@ class _QuickWhatsAppAppState extends State<QuickWhatsAppApp> {
       scaffoldBackgroundColor: isDark
           ? const Color(0xFF111714)
           : const Color(0xFFF7F9F8),
+      iconTheme: const IconThemeData(size: 21),
       appBarTheme: AppBarTheme(
         centerTitle: true,
         elevation: 0,
@@ -311,6 +315,7 @@ class _HomePageState extends State<HomePage> {
   Country selectedCountry = countries.first;
   WhatsAppTarget selectedTarget = WhatsAppTarget.personal;
   bool openingWhatsApp = false;
+  bool loadingSavedData = true;
 
   static const brandBlue = Color(0xFF087BAA);
 
@@ -333,6 +338,7 @@ class _HomePageState extends State<HomePage> {
       selectedTarget = savedTarget == 'business'
           ? WhatsAppTarget.business
           : WhatsAppTarget.personal;
+      loadingSavedData = false;
     });
   }
 
@@ -479,6 +485,65 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildLoadingSkeleton(
+    BuildContext context,
+    BoxConstraints constraints,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseColor = isDark ? const Color(0xFF222B27) : const Color(0xFFE7ECEA);
+    final highlightColor = isDark ? const Color(0xFF34403B) : const Color(0xFFF7F9F8);
+    final compact = constraints.maxHeight < 650;
+    final horizontalPadding = compact ? 14.0 : 18.0;
+
+    Widget bar(double height, {double? width, double radius = 16}) {
+      return Container(
+        width: width ?? double.infinity,
+        height: height,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        horizontalPadding,
+        compact ? 10 : 16,
+        horizontalPadding,
+        12,
+      ),
+      child: Shimmer.fromColors(
+        baseColor: baseColor,
+        highlightColor: highlightColor,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(child: bar(compact ? 48 : 58, width: compact ? 48 : 58)),
+            const SizedBox(height: 10),
+            Center(child: bar(16, width: 190, radius: 8)),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(child: bar(compact ? 46 : 50)),
+                const SizedBox(width: 8),
+                Expanded(child: bar(compact ? 46 : 50)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            bar(56),
+            const SizedBox(height: 12),
+            bar(56),
+            const SizedBox(height: 12),
+            bar(compact ? 62 : 70),
+            const SizedBox(height: 14),
+            bar(compact ? 48 : 52),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildWhatsAppSelector(bool compact) {
     final colors = Theme.of(context).colorScheme;
 
@@ -519,7 +584,7 @@ class _HomePageState extends State<HomePage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        selected ? Icons.check_rounded : icon,
+                        selected ? LucideIcons.check : icon,
                         size: compact ? 20 : 22,
                       ),
                       SizedBox(width: compact ? 6 : 8),
@@ -549,13 +614,13 @@ class _HomePageState extends State<HomePage> {
       children: [
         buildOption(
           target: WhatsAppTarget.personal,
-          icon: Icons.chat_rounded,
+          icon: LucideIcons.messageCircle,
           label: 'العادي',
         ),
         const SizedBox(width: 8),
         buildOption(
           target: WhatsAppTarget.business,
-          icon: Icons.business_center_rounded,
+          icon: LucideIcons.briefcase,
           label: 'الأعمال',
         ),
       ],
@@ -573,7 +638,7 @@ class _HomePageState extends State<HomePage> {
       width: constraints.maxWidth - (horizontalPadding * 2),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [
+        children: <Widget>[
           Container(
             width: logoSize,
             height: logoSize,
@@ -582,7 +647,7 @@ class _HomePageState extends State<HomePage> {
               borderRadius: BorderRadius.circular(compact ? 15 : 18),
             ),
             child: Icon(
-              Icons.chat_rounded,
+              LucideIcons.messageCircle,
               size: compact ? 27 : 32,
               color: Colors.white,
             ),
@@ -604,7 +669,7 @@ class _HomePageState extends State<HomePage> {
             isExpanded: true,
             decoration: const InputDecoration(
               labelText: 'الدولة',
-              prefixIcon: Icon(Icons.public_rounded),
+              prefixIcon: Icon(LucideIcons.globe),
             ),
             items: countries.map((country) {
               return DropdownMenuItem(
@@ -635,11 +700,11 @@ class _HomePageState extends State<HomePage> {
             decoration: InputDecoration(
               labelText: 'رقم الجوال',
               hintText: '05xxxxxxxx',
-              prefixIcon: const Icon(Icons.phone_android_rounded),
+              prefixIcon: const Icon(LucideIcons.smartphone),
               suffixIcon: IconButton(
                 tooltip: 'لصق',
                 onPressed: pasteNumber,
-                icon: const Icon(Icons.content_paste_rounded),
+                icon: const Icon(LucideIcons.clipboardPaste),
               ),
             ),
           ),
@@ -657,7 +722,7 @@ class _HomePageState extends State<HomePage> {
                 labelText: 'الرسالة - اختياري',
                 hintText: 'اكتب رسالة مسبقة',
                 alignLabelWithHint: true,
-                prefixIcon: Icon(Icons.message_outlined),
+                prefixIcon: Icon(LucideIcons.messageSquare),
               ),
             ),
           ),
@@ -685,8 +750,8 @@ class _HomePageState extends State<HomePage> {
                     )
                   : Icon(
                       selectedTarget == WhatsAppTarget.personal
-                          ? Icons.chat_rounded
-                          : Icons.business_center_rounded,
+                          ? LucideIcons.messageCircle
+                          : LucideIcons.briefcase,
                       size: 22,
                     ),
               label: Text(
@@ -704,7 +769,7 @@ class _HomePageState extends State<HomePage> {
           TextButton.icon(
             onPressed: clearInputs,
             style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-            icon: const Icon(Icons.refresh_rounded, size: 19),
+            icon: const Icon(LucideIcons.refreshCw, size: 19),
             label: const Text('رقم جديد'),
           ),
           Text(
@@ -715,9 +780,7 @@ class _HomePageState extends State<HomePage> {
               color: colors.onSurfaceVariant,
             ),
           ),
-        ],
-      ),
-    );
+        ].animate(interval: 55.ms)\n            .fadeIn(duration: 420.ms, curve: Curves.easeOutCubic)\n            .slideY(begin: 0.045, end: 0, duration: 480.ms, curve: Curves.easeOutCubic),\n      ),\n    );
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -759,11 +822,17 @@ class _HomePageState extends State<HomePage> {
             IconButton(
               tooltip: 'الإعدادات',
               onPressed: openSettings,
-              icon: const Icon(Icons.settings_rounded),
+              icon: const Icon(LucideIcons.settings),
             ),
           ],
         ),
-        body: SafeArea(child: LayoutBuilder(builder: _buildMainContent)),
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) => loadingSavedData
+                ? _buildLoadingSkeleton(context, constraints)
+                : _buildMainContent(context, constraints),
+          ),
+        ),
       ),
     );
   }
@@ -827,7 +896,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     borderRadius: BorderRadius.circular(15),
                   ),
                   child: const Icon(
-                    Icons.chat_rounded,
+                    LucideIcons.messageCircle,
                     color: Colors.white,
                     size: 30,
                   ),
@@ -851,7 +920,7 @@ class _SettingsPageState extends State<SettingsPage> {
             const ListTile(
               contentPadding: EdgeInsets.zero,
               dense: true,
-              leading: Icon(Icons.person_outline_rounded),
+              leading: Icon(LucideIcons.user),
               title: Text('تطوير'),
               trailing: Text(
                 'alyafai',
@@ -861,7 +930,7 @@ class _SettingsPageState extends State<SettingsPage> {
             const ListTile(
               contentPadding: EdgeInsets.zero,
               dense: true,
-              leading: Icon(Icons.info_outline_rounded),
+              leading: Icon(LucideIcons.info),
               title: Text('نسخة التطبيق'),
               trailing: Text(
                 '1.1.0',
@@ -930,8 +999,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 onChanged: _changeDarkMode,
                 secondary: Icon(
                   isDarkMode
-                      ? Icons.dark_mode_rounded
-                      : Icons.light_mode_rounded,
+                      ? LucideIcons.moon
+                      : LucideIcons.sun,
                 ),
                 title: const Text('الوضع الداكن'),
                 subtitle: Text(isDarkMode ? 'مفعّل' : 'غير مفعّل'),
@@ -984,17 +1053,17 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Column(
                 children: [
                   ListTile(
-                    leading: const Icon(Icons.info_outline_rounded),
+                    leading: const Icon(LucideIcons.info),
                     title: const Text('عن التطبيق'),
-                    trailing: const Icon(Icons.chevron_left_rounded),
+                    trailing: const Icon(LucideIcons.chevronLeft),
                     onTap: _showAbout,
                   ),
                   const Divider(height: 1, indent: 16, endIndent: 16),
                   ListTile(
-                    leading: const Icon(Icons.privacy_tip_outlined),
+                    leading: const Icon(LucideIcons.shieldCheck),
                     title: const Text('سياسة الخصوصية'),
                     subtitle: const Text('سنضيف التفاصيل لاحقًا'),
-                    trailing: const Icon(Icons.chevron_left_rounded),
+                    trailing: const Icon(LucideIcons.chevronLeft),
                     onTap: _showPrivacyPlaceholder,
                   ),
                 ],
