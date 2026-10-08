@@ -176,7 +176,7 @@ class _QuickWhatsAppAppState extends State<QuickWhatsAppApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'واتساب سريع',
+      title: 'رقم مباشر',
       themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
       theme: _buildTheme(Brightness.light),
       darkTheme: _buildTheme(Brightness.dark),
@@ -829,7 +829,7 @@ class _HomePageState extends State<HomePage> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text(
-            'واتساب سريع',
+            'رقم مباشر',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           actions: [
@@ -918,7 +918,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text(
-                    'واتساب سريع',
+                    'رقم مباشر',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                 ),
