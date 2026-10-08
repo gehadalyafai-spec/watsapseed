@@ -14,6 +14,9 @@ dependencies:
   url_launcher: ^6.3.2
   shared_preferences: ^2.5.5
   google_fonts: ^8.2.1
+  flutter_animate: ^4.5.2
+  lucide_icons_flutter: ^3.1.22
+  shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_test:
