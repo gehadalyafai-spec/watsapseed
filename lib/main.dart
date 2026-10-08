@@ -780,7 +780,11 @@ class _HomePageState extends State<HomePage> {
               color: colors.onSurfaceVariant,
             ),
           ),
-        ].animate(interval: 55.ms)\n            .fadeIn(duration: 420.ms, curve: Curves.easeOutCubic)\n            .slideY(begin: 0.045, end: 0, duration: 480.ms, curve: Curves.easeOutCubic),\n      ),\n    );
+        ].animate(interval: 55.ms)
+            .fadeIn(duration: 420.ms, curve: Curves.easeOutCubic)
+            .slideY(begin: 0.045, end: 0, duration: 480.ms, curve: Curves.easeOutCubic),
+      ),
+    );
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
