@@ -116,14 +116,14 @@ class _QuickWhatsAppAppState extends State<QuickWhatsAppApp> {
   }
 
   ThemeData _buildTheme(Brightness brightness) {
-    const whatsappGreen = Color(0xFF25D366);
+    const brandBlue = Color(0xFF087BAA);
     final isDark = brightness == Brightness.dark;
 
     final baseTheme = ThemeData(
       useMaterial3: true,
       brightness: brightness,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: whatsappGreen,
+        seedColor: brandBlue,
         brightness: brightness,
       ),
       scaffoldBackgroundColor: isDark
@@ -157,7 +157,7 @@ class _QuickWhatsAppAppState extends State<QuickWhatsAppApp> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: whatsappGreen, width: 1.8),
+          borderSide: const BorderSide(color: brandBlue, width: 1.8),
         ),
       ),
     );
@@ -312,7 +312,7 @@ class _HomePageState extends State<HomePage> {
   WhatsAppTarget selectedTarget = WhatsAppTarget.personal;
   bool openingWhatsApp = false;
 
-  static const whatsappGreen = Color(0xFF25D366);
+  static const brandBlue = Color(0xFF087BAA);
 
   @override
   void initState() {
@@ -492,13 +492,13 @@ class _HomePageState extends State<HomePage> {
       return Expanded(
         child: Material(
           color: selected
-              ? whatsappGreen.withValues(alpha: 0.16)
+              ? brandBlue.withValues(alpha: 0.16)
               : colors.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
               color: selected
-                  ? whatsappGreen
+                  ? brandBlue
                   : colors.outline.withValues(alpha: 0.55),
               width: selected ? 1.6 : 1,
             ),
@@ -578,7 +578,7 @@ class _HomePageState extends State<HomePage> {
             width: logoSize,
             height: logoSize,
             decoration: BoxDecoration(
-              color: whatsappGreen,
+              color: brandBlue,
               borderRadius: BorderRadius.circular(compact ? 15 : 18),
             ),
             child: Icon(
@@ -668,7 +668,7 @@ class _HomePageState extends State<HomePage> {
             child: FilledButton.icon(
               onPressed: openingWhatsApp ? null : openWhatsApp,
               style: FilledButton.styleFrom(
-                backgroundColor: whatsappGreen,
+                backgroundColor: brandBlue,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -823,7 +823,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF25D366),
+                    color: const Color(0xFF087BAA),
                     borderRadius: BorderRadius.circular(15),
                   ),
                   child: const Icon(
