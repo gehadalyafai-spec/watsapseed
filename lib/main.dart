@@ -754,15 +754,25 @@ class _HomePageState extends State<HomePage> {
                           : LucideIcons.briefcase,
                       size: 22,
                     ),
-              label: Text(
-                openingWhatsApp
-                    ? 'جاري الفتح...'
-                    : 'فتح في ${selectedTarget.shortTitle}',
-                style: TextStyle(
-                  fontSize: compact ? 16 : 17,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              label: openingWhatsApp
+                  ? Shimmer.fromColors(
+                      baseColor: Colors.white70,
+                      highlightColor: Colors.white,
+                      child: Text(
+                        'جاري الفتح...',
+                        style: TextStyle(
+                          fontSize: compact ? 16 : 17,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    )
+                  : Text(
+                      'فتح في ${selectedTarget.shortTitle}',
+                      style: TextStyle(
+                        fontSize: compact ? 16 : 17,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
             ),
           ),
           SizedBox(height: compact ? 2 : 4),
@@ -780,7 +790,7 @@ class _HomePageState extends State<HomePage> {
               color: colors.onSurfaceVariant,
             ),
           ),
-        ].animate(interval: 55.ms)
+        ].animate(delay: 1950.ms, interval: 55.ms)
             .fadeIn(duration: 420.ms, curve: Curves.easeOutCubic)
             .slideY(begin: 0.045, end: 0, duration: 480.ms, curve: Curves.easeOutCubic),
       ),
@@ -986,7 +996,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
+          children: <Widget>[
             Text(
               'المظهر',
               style: TextStyle(
@@ -1073,7 +1083,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               ),
             ),
-          ],
+          ].animate(interval: 60.ms)
+              .fadeIn(duration: 360.ms, curve: Curves.easeOutCubic)
+              .slideY(begin: 0.035, end: 0, duration: 420.ms, curve: Curves.easeOutCubic),
         ),
       ),
     );
