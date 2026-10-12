@@ -17,6 +17,7 @@
 - [ ] أخذ لقطات شاشة حقيقية.
 - [ ] إنشاء التطبيق في Play Console.
 - [ ] إكمال App content وContent rating.
+- [ ] حسم سلوك google_fonts في نسخة Release: تضمين الخطوط محليًا أو توثيق الجلب الشبكي.
 - [ ] إكمال Data safety بما يطابق التطبيق والسياسة.
 - [ ] رفع app-release.aab إلى مسار الاختبار المناسب.
 - [ ] اختبار النسخة التي يوقعها Google Play قبل النشر العام.
@@ -49,3 +50,8 @@ build\app\outputs\bundle\release\app-release.aab
 
 ثم راجع:
 `play_store/UPLOAD_KEY_GUIDE_AR.md`
+
+
+## ملفات Play Console
+- `play_store/DATA_SAFETY_AR.md`
+- `play_store/APP_CONTENT_AR.md`
