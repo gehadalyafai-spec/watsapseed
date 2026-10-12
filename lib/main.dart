@@ -399,8 +399,24 @@ class _HomePageState extends State<HomePage> {
   WhatsAppTarget selectedTarget = WhatsAppTarget.personal;
   bool openingWhatsApp = false;
   bool loadingSavedData = true;
+  String currentDhikr = 'سبحان الله وبحمده';
 
   static const brandBlue = Color(0xFF087BAA);
+
+  static const _dhikrItems = <String>[
+    'سبحان الله وبحمده',
+    'الحمد لله',
+    'الله أكبر',
+    'لا إله إلا الله',
+    'أستغفر الله وأتوب إليه',
+    'لا حول ولا قوة إلا بالله',
+    'سبحان الله العظيم',
+    'اللهم صل وسلم على نبينا محمد',
+    'حسبي الله ونعم الوكيل',
+    'رب اغفر لي وارحمني',
+    'اللهم أعني على ذكرك وشكرك وحسن عبادتك',
+    'سبحان الله والحمد لله ولا إله إلا الله والله أكبر',
+  ];
 
   @override
   void initState() {
@@ -482,6 +498,10 @@ class _HomePageState extends State<HomePage> {
     final savedTarget = prefs.getString('whatsapp_target');
     final savedCountryCode = prefs.getString('country_code');
     final savedCountryName = prefs.getString('country_name');
+    final lastDhikrIndex = prefs.getInt('last_dhikr_index') ?? -1;
+    final nextDhikrIndex = (lastDhikrIndex + 1) % _dhikrItems.length;
+
+    await prefs.setInt('last_dhikr_index', nextDhikrIndex);
 
     // V4 no longer stores or displays recently used phone numbers.
     await prefs.remove('phone_history');
@@ -501,6 +521,7 @@ class _HomePageState extends State<HomePage> {
           orElse: () => countries.first,
         ),
       );
+      currentDhikr = _dhikrItems[nextDhikrIndex];
       loadingSavedData = false;
     });
   }
@@ -1168,6 +1189,70 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildDhikrCard(BuildContext context, bool compact) {
+    final colors = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: compact ? 8 : 10,
+      ),
+      decoration: BoxDecoration(
+        color: brandBlue.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: brandBlue.withValues(alpha: 0.14),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: compact ? 32 : 36,
+            height: compact ? 32 : 36,
+            decoration: BoxDecoration(
+              color: brandBlue.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: const Icon(
+              Icons.auto_awesome_rounded,
+              color: brandBlue,
+              size: 19,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'ذِكر',
+                  style: TextStyle(
+                    fontSize: compact ? 9.5 : 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  currentDhikr,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: compact ? 12.5 : 13.5,
+                    height: 1.35,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMainContent(BuildContext context, BoxConstraints constraints) {
     final colors = Theme.of(context).colorScheme;
     final compact = constraints.maxHeight < 650;
@@ -1359,10 +1444,18 @@ class _HomePageState extends State<HomePage> {
       child: SizedBox(
         width: constraints.maxWidth,
         height: constraints.maxHeight - (compact ? 12 : 20),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.topCenter,
-          child: content,
+        child: Column(
+          children: [
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.topCenter,
+                child: content,
+              ),
+            ),
+            SizedBox(height: compact ? 4 : 8),
+            _buildDhikrCard(context, compact),
+          ],
         ),
       ),
     );
