@@ -391,6 +391,7 @@ class _HomePageState extends State<HomePage> {
     final prefs = await SharedPreferences.getInstance();
     final savedTarget = prefs.getString('whatsapp_target');
     final savedCountryCode = prefs.getString('country_code');
+    final savedCountryName = prefs.getString('country_name');
 
     // V4 no longer stores or displays recently used phone numbers.
     await prefs.remove('phone_history');
@@ -402,8 +403,13 @@ class _HomePageState extends State<HomePage> {
           ? WhatsAppTarget.business
           : WhatsAppTarget.personal;
       selectedCountry = countries.firstWhere(
-        (country) => country.code == savedCountryCode,
-        orElse: () => countries.first,
+        (country) =>
+            country.code == savedCountryCode &&
+            (savedCountryName == null || country.name == savedCountryName),
+        orElse: () => countries.firstWhere(
+          (country) => country.code == savedCountryCode,
+          orElse: () => countries.first,
+        ),
       );
       loadingSavedData = false;
     });
@@ -423,6 +429,7 @@ class _HomePageState extends State<HomePage> {
     setState(() => selectedCountry = country);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('country_code', country.code);
+    await prefs.setString('country_name', country.name);
   }
 
   Future<void> _selectCountry() async {
@@ -1245,7 +1252,7 @@ class _CountrySearchDialogState extends State<CountrySearchDialog> {
                             searchController.clear();
                             setState(() => query = '');
                           },
-                          icon: const Icon(LucideIcons.x),
+                          icon: const Icon(Icons.close_rounded),
                         ),
                 ),
               ),
@@ -1917,7 +1924,7 @@ class _SettingsPageState extends State<SettingsPage> {
             Card(
               clipBehavior: Clip.antiAlias,
               child: ListTile(
-                leading: const Icon(LucideIcons.trash2),
+                leading: const Icon(Icons.delete_outline_rounded),
                 title: const Text('مسح الرسائل والمفضلة'),
                 subtitle: const Text('حذف المحتوى المحفوظ محليًا على الجهاز'),
                 trailing: const Icon(LucideIcons.chevronLeft),
