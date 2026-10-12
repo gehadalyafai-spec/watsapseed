@@ -51,7 +51,7 @@ build\app\outputs\bundle\release\app-release.aab
 
 ## مهم قبل أول نشر
 - المشروع يستهدف Android 16 / API 36.
-- اسم الحزمة الحالي `com.example.watsapseed` مؤقت ويجب تغييره قبل أول رفع إلى Google Play.
+- اسم الحزمة النهائي المعتمد: `com.alyafai.raqmmubasher`.
 - لا ترفع ملف `android/key.properties` أو ملفات keystore إلى GitHub.
 - راجع قائمة النشر في:
   `play_store/RELEASE_CHECKLIST_AR.md`
