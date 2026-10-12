@@ -17,6 +17,26 @@ class MainActivity : FlutterActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             channelName
         ).setMethodCallHandler { call, result ->
+            if (call.method == "shareText") {
+                val text = call.argument<String>("text").orEmpty()
+                if (text.isBlank()) {
+                    result.error("INVALID_ARGUMENTS", "Missing text", null)
+                    return@setMethodCallHandler
+                }
+
+                try {
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, text)
+                    }
+                    startActivity(Intent.createChooser(shareIntent, null))
+                    result.success(true)
+                } catch (e: Exception) {
+                    result.error("SHARE_FAILED", e.message, null)
+                }
+                return@setMethodCallHandler
+            }
+
             if (call.method != "openWhatsApp") {
                 result.notImplemented()
                 return@setMethodCallHandler
