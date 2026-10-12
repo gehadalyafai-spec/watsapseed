@@ -914,6 +914,7 @@ class _HomePageState extends State<HomePage> {
       MaterialPageRoute<String>(
         builder: (_) => FavoritesPage(
           initialNumber: phoneController.text.trim(),
+          defaultCountry: selectedCountry,
         ),
       ),
     );
@@ -923,6 +924,7 @@ class _HomePageState extends State<HomePage> {
       phoneController.selection = TextSelection.collapsed(
         offset: phoneController.text.length,
       );
+      await _detectCountryFromInternationalNumber(number);
     }
   }
 
@@ -1733,8 +1735,13 @@ class _MessageTemplatesPageState extends State<MessageTemplatesPage> {
 
 class FavoritesPage extends StatefulWidget {
   final String initialNumber;
+  final Country defaultCountry;
 
-  const FavoritesPage({super.key, required this.initialNumber});
+  const FavoritesPage({
+    super.key,
+    required this.initialNumber,
+    required this.defaultCountry,
+  });
 
   @override
   State<FavoritesPage> createState() => _FavoritesPageState();
@@ -1765,6 +1772,34 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
   String _normalizedNumber(String value) {
     return value.replaceAll(RegExp(r'[^0-9]'), '');
+  }
+
+  String _internationalForStorage(String value) {
+    final trimmed = value.trim();
+    var digits = _normalizedNumber(trimmed);
+
+    if (digits.isEmpty) return trimmed;
+
+    if (trimmed.startsWith('+')) {
+      return '+$digits';
+    }
+
+    if (trimmed.startsWith('00')) {
+      if (digits.startsWith('00')) {
+        digits = digits.substring(2);
+      }
+      return '+$digits';
+    }
+
+    if (digits.startsWith(widget.defaultCountry.code)) {
+      return '+$digits';
+    }
+
+    while (digits.startsWith('0')) {
+      digits = digits.substring(1);
+    }
+
+    return '+${widget.defaultCountry.code}$digits';
   }
 
   List<MapEntry<int, String>> get visibleFavorites {
@@ -1829,7 +1864,11 @@ class _FavoritesPageState extends State<FavoritesPage> {
               controller: numberController,
               keyboardType: TextInputType.phone,
               textDirection: TextDirection.ltr,
-              decoration: const InputDecoration(labelText: 'رقم الجوال'),
+              decoration: InputDecoration(
+                labelText: 'رقم الجوال',
+                hintText: 'مثال: 05xxxxxxxx أو +966...',
+                helperText: 'يُحفظ بصيغة دولية حسب ${widget.defaultCountry.name}',
+              ),
             ),
           ],
         ),
@@ -1847,12 +1886,15 @@ class _FavoritesPageState extends State<FavoritesPage> {
     );
 
     final name = nameController.text.trim();
-    final number = numberController.text.trim();
+    final enteredNumber = numberController.text.trim();
     nameController.dispose();
     numberController.dispose();
 
-    if (saved != true || name.isEmpty || number.isEmpty || !mounted) return;
+    if (saved != true || name.isEmpty || enteredNumber.isEmpty || !mounted) {
+      return;
+    }
 
+    final number = _internationalForStorage(enteredNumber);
     final normalized = _normalizedNumber(number);
     if (normalized.length < 7) {
       ScaffoldMessenger.of(context).showSnackBar(
