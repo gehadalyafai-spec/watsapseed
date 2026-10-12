@@ -270,8 +270,34 @@ const countries = <Country>[
   Country(name: 'العراق', flag: '🇮🇶', code: '964'),
   Country(name: 'فلسطين', flag: '🇵🇸', code: '970'),
   Country(name: 'سوريا', flag: '🇸🇾', code: '963'),
+  Country(name: 'لبنان', flag: '🇱🇧', code: '961'),
+  Country(name: 'ليبيا', flag: '🇱🇾', code: '218'),
+  Country(name: 'السودان', flag: '🇸🇩', code: '249'),
+  Country(name: 'الصومال', flag: '🇸🇴', code: '252'),
+  Country(name: 'جيبوتي', flag: '🇩🇯', code: '253'),
+  Country(name: 'موريتانيا', flag: '🇲🇷', code: '222'),
+  Country(name: 'تونس', flag: '🇹🇳', code: '216'),
   Country(name: 'المغرب', flag: '🇲🇦', code: '212'),
   Country(name: 'الجزائر', flag: '🇩🇿', code: '213'),
+  Country(name: 'تركيا', flag: '🇹🇷', code: '90'),
+  Country(name: 'باكستان', flag: '🇵🇰', code: '92'),
+  Country(name: 'الهند', flag: '🇮🇳', code: '91'),
+  Country(name: 'بنغلاديش', flag: '🇧🇩', code: '880'),
+  Country(name: 'إندونيسيا', flag: '🇮🇩', code: '62'),
+  Country(name: 'ماليزيا', flag: '🇲🇾', code: '60'),
+  Country(name: 'الفلبين', flag: '🇵🇭', code: '63'),
+  Country(name: 'الولايات المتحدة', flag: '🇺🇸', code: '1'),
+  Country(name: 'كندا', flag: '🇨🇦', code: '1'),
+  Country(name: 'المملكة المتحدة', flag: '🇬🇧', code: '44'),
+  Country(name: 'فرنسا', flag: '🇫🇷', code: '33'),
+  Country(name: 'ألمانيا', flag: '🇩🇪', code: '49'),
+  Country(name: 'إيطاليا', flag: '🇮🇹', code: '39'),
+  Country(name: 'إسبانيا', flag: '🇪🇸', code: '34'),
+  Country(name: 'هولندا', flag: '🇳🇱', code: '31'),
+  Country(name: 'بلجيكا', flag: '🇧🇪', code: '32'),
+  Country(name: 'السويد', flag: '🇸🇪', code: '46'),
+  Country(name: 'النرويج', flag: '🇳🇴', code: '47'),
+  Country(name: 'أستراليا', flag: '🇦🇺', code: '61'),
 ];
 
 enum WhatsAppTarget { personal, business }
@@ -290,6 +316,7 @@ extension WhatsAppTargetInfo on WhatsAppTarget {
 enum QuickTool {
   phone,
   sms,
+  copyNumber,
   copyLink,
   shareLink,
   qr,
@@ -301,6 +328,7 @@ extension QuickToolInfo on QuickTool {
   String get title => switch (this) {
     QuickTool.phone => 'اتصال مباشر',
     QuickTool.sms => 'رسالة SMS',
+    QuickTool.copyNumber => 'نسخ الرقم الدولي',
     QuickTool.copyLink => 'نسخ رابط المحادثة',
     QuickTool.shareLink => 'مشاركة رابط المحادثة',
     QuickTool.qr => 'إنشاء QR',
@@ -311,6 +339,7 @@ extension QuickToolInfo on QuickTool {
   IconData get icon => switch (this) {
     QuickTool.phone => Icons.phone_rounded,
     QuickTool.sms => Icons.sms_rounded,
+    QuickTool.copyNumber => Icons.copy_all_rounded,
     QuickTool.copyLink => Icons.content_copy_rounded,
     QuickTool.shareLink => Icons.share_rounded,
     QuickTool.qr => Icons.qr_code_2_rounded,
@@ -361,6 +390,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> loadSavedData() async {
     final prefs = await SharedPreferences.getInstance();
     final savedTarget = prefs.getString('whatsapp_target');
+    final savedCountryCode = prefs.getString('country_code');
 
     // V4 no longer stores or displays recently used phone numbers.
     await prefs.remove('phone_history');
@@ -371,6 +401,10 @@ class _HomePageState extends State<HomePage> {
       selectedTarget = savedTarget == 'business'
           ? WhatsAppTarget.business
           : WhatsAppTarget.personal;
+      selectedCountry = countries.firstWhere(
+        (country) => country.code == savedCountryCode,
+        orElse: () => countries.first,
+      );
       loadingSavedData = false;
     });
   }
@@ -383,6 +417,23 @@ class _HomePageState extends State<HomePage> {
       'whatsapp_target',
       target == WhatsAppTarget.business ? 'business' : 'personal',
     );
+  }
+
+  Future<void> changeCountry(Country country) async {
+    setState(() => selectedCountry = country);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('country_code', country.code);
+  }
+
+  Future<void> _selectCountry() async {
+    final country = await showDialog<Country>(
+      context: context,
+      builder: (_) => CountrySearchDialog(selectedCountry: selectedCountry),
+    );
+
+    if (country != null && mounted) {
+      await changeCountry(country);
+    }
   }
 
   Future<void> pasteNumber() async {
@@ -549,18 +600,28 @@ class _HomePageState extends State<HomePage> {
     switch (tool) {
       case QuickTool.phone:
         await _openPhoneCall();
+        break;
       case QuickTool.sms:
         await _openSms();
+        break;
+      case QuickTool.copyNumber:
+        await _copyInternationalNumber();
+        break;
       case QuickTool.copyLink:
         await _copyChatLink();
+        break;
       case QuickTool.shareLink:
         await _shareChatLink();
+        break;
       case QuickTool.qr:
         await _showQrCode();
+        break;
       case QuickTool.templates:
         await _openMessageTemplates();
+        break;
       case QuickTool.favorites:
         await _openFavorites();
+        break;
     }
   }
 
@@ -588,6 +649,14 @@ class _HomePageState extends State<HomePage> {
 
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!opened && mounted) showMessage('تعذر فتح تطبيق الرسائل');
+  }
+
+  Future<void> _copyInternationalNumber() async {
+    final number = _currentNumber();
+    if (number == null) return;
+
+    await Clipboard.setData(ClipboardData(text: '+$number'));
+    if (mounted) showMessage('تم نسخ الرقم الدولي');
   }
 
   Future<void> _copyChatLink() async {
@@ -899,25 +968,37 @@ class _HomePageState extends State<HomePage> {
           SizedBox(height: compact ? 8 : 12),
           _buildWhatsAppSelector(compact),
           SizedBox(height: gap),
-          DropdownButtonFormField<Country>(
-            initialValue: selectedCountry,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'الدولة',
-              prefixIcon: Icon(LucideIcons.globe),
+          InkWell(
+            onTap: _selectCountry,
+            borderRadius: BorderRadius.circular(16),
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'الدولة',
+                prefixIcon: Icon(LucideIcons.globe),
+              ),
+              child: Row(
+                children: [
+                  Text(selectedCountry.flag),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      selectedCountry.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: Text(
+                      '+${selectedCountry.code}',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(LucideIcons.chevronDown, size: 18),
+                ],
+              ),
             ),
-            items: countries.map((country) {
-              return DropdownMenuItem(
-                value: country,
-                child: Text(
-                  '${country.flag}  ${country.name}  +${country.code}',
-                ),
-              );
-            }).toList(),
-            onChanged: (country) {
-              if (country == null) return;
-              setState(() => selectedCountry = country);
-            },
           ),
           SizedBox(height: gap),
           TextField(
@@ -1100,6 +1181,117 @@ class _HomePageState extends State<HomePage> {
                 : _buildMainContent(context, constraints),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class CountrySearchDialog extends StatefulWidget {
+  final Country selectedCountry;
+
+  const CountrySearchDialog({super.key, required this.selectedCountry});
+
+  @override
+  State<CountrySearchDialog> createState() => _CountrySearchDialogState();
+}
+
+class _CountrySearchDialogState extends State<CountrySearchDialog> {
+  final searchController = TextEditingController();
+  String query = '';
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
+
+  List<Country> get filteredCountries {
+    final normalized = query.trim().toLowerCase();
+    if (normalized.isEmpty) return countries;
+
+    return countries.where((country) {
+      return country.name.toLowerCase().contains(normalized) ||
+          country.code.contains(normalized) ||
+          '+${country.code}'.contains(normalized);
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final results = filteredCountries;
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: AlertDialog(
+        title: const Text('اختيار الدولة'),
+        contentPadding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
+        content: SizedBox(
+          width: 420,
+          height: 460,
+          child: Column(
+            children: [
+              TextField(
+                controller: searchController,
+                autofocus: true,
+                onChanged: (value) => setState(() => query = value),
+                decoration: InputDecoration(
+                  hintText: 'ابحث بالاسم أو مفتاح الدولة',
+                  prefixIcon: const Icon(LucideIcons.search),
+                  suffixIcon: query.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'مسح البحث',
+                          onPressed: () {
+                            searchController.clear();
+                            setState(() => query = '');
+                          },
+                          icon: const Icon(LucideIcons.x),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: results.isEmpty
+                    ? const Center(child: Text('لا توجد نتائج'))
+                    : ListView.separated(
+                        itemCount: results.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final country = results[index];
+                          final selected =
+                              country.code == widget.selectedCountry.code &&
+                              country.name == widget.selectedCountry.name;
+                          return ListTile(
+                            dense: true,
+                            leading: Text(
+                              country.flag,
+                              style: const TextStyle(fontSize: 24),
+                            ),
+                            title: Text(country.name),
+                            subtitle: Directionality(
+                              textDirection: TextDirection.ltr,
+                              child: Text(
+                                '+${country.code}',
+                                textAlign: TextAlign.right,
+                              ),
+                            ),
+                            trailing: selected
+                                ? const Icon(LucideIcons.check)
+                                : null,
+                            onTap: () => Navigator.of(context).pop(country),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('إلغاء'),
+          ),
+        ],
       ),
     );
   }
@@ -1536,7 +1728,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'تطبيق سريع لفتح محادثة في واتساب العادي أو واتساب الأعمال دون الحاجة إلى حفظ الرقم في جهات الاتصال.',
+              'أداة تواصل سريعة لفتح واتساب وواتساب الأعمال، والاتصال وSMS، وإنشاء روابط وQR، مع رسائل جاهزة ومفضلة دون الحاجة إلى حفظ الرقم في جهات الاتصال.',
             ),
             const SizedBox(height: 14),
             const Divider(height: 1),
@@ -1573,13 +1765,23 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  void _showPrivacyPlaceholder() {
+  void _showPrivacyPolicy() {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('سياسة الخصوصية'),
-        content: const Text(
-          'سيتم إضافة سياسة الخصوصية الكاملة هنا في إصدار لاحق.',
+        content: const SingleChildScrollView(
+          child: Text(
+            'يعمل تطبيق رقم مباشر محليًا على جهازك قدر الإمكان. '
+            'لا يتطلب إنشاء حساب، ولا نقوم برفع أرقام الجوال أو الرسائل التي تكتبها إلى خوادم خاصة بنا، '
+            'ولا نبيع بيانات المستخدمين.\n\n'
+            'الرسائل الجاهزة والأرقام المفضلة التي تختار حفظها يتم تخزينها محليًا على جهازك فقط. '
+            'عند استخدام واتساب أو واتساب الأعمال أو الاتصال أو SMS أو المشاركة، '
+            'يتم تمرير الرقم أو النص الذي اخترته إلى التطبيق الخارجي أو نظام التشغيل لتنفيذ الإجراء. '
+            'وتنطبق عند ذلك سياسات الخصوصية الخاصة بتلك الخدمات.\n\n'
+            'لا يحتوي هذا الإصدار على إعلانات أو أدوات تحليل سلوكي. '
+            'التطبيق مستقل وغير تابع لشركة WhatsApp أو Meta أو معتمد منهما.',
+          ),
         ),
         actions: [
           TextButton(
@@ -1587,6 +1789,46 @@ class _SettingsPageState extends State<SettingsPage> {
             child: const Text('حسنًا'),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _clearSavedContent() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('مسح البيانات المحلية'),
+        content: const Text(
+          'سيتم حذف جميع الرسائل الجاهزة والأرقام المفضلة المحفوظة على هذا الجهاز. '
+          'لن تتغير إعدادات المظهر والخط.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('مسح'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('message_templates');
+    await prefs.remove('favorite_numbers');
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'تم مسح الرسائل الجاهزة والمفضلة',
+          textAlign: TextAlign.center,
+        ),
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -1664,6 +1906,26 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const SizedBox(height: 18),
             Text(
+              'البيانات المحلية',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: colors.primary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                leading: const Icon(LucideIcons.trash2),
+                title: const Text('مسح الرسائل والمفضلة'),
+                subtitle: const Text('حذف المحتوى المحفوظ محليًا على الجهاز'),
+                trailing: const Icon(LucideIcons.chevronLeft),
+                onTap: _clearSavedContent,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
               'معلومات',
               style: TextStyle(
                 fontSize: 14,
@@ -1686,9 +1948,9 @@ class _SettingsPageState extends State<SettingsPage> {
                   ListTile(
                     leading: const Icon(LucideIcons.shieldCheck),
                     title: const Text('سياسة الخصوصية'),
-                    subtitle: const Text('سنضيف التفاصيل لاحقًا'),
+                    subtitle: const Text('كيف يتعامل التطبيق مع بياناتك'),
                     trailing: const Icon(LucideIcons.chevronLeft),
-                    onTap: _showPrivacyPlaceholder,
+                    onTap: _showPrivacyPolicy,
                   ),
                 ],
               ),
