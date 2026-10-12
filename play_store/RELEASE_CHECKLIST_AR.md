@@ -10,7 +10,7 @@
 - [x] مسودة سياسة خصوصية خارجية.
 - [x] مسودة صفحة متجر عربية.
 - [x] اعتماد package name النهائي: com.alyafai.raqmmubasher.
-- [ ] إنشاء Upload Key حقيقي.
+- [ ] إنشاء Upload Key حقيقي باستخدام `generate_upload_key.bat`.
 - [ ] إنشاء android/key.properties محليًا.
 - [ ] نشر سياسة الخصوصية على رابط HTTPS عام.
 - [ ] تجهيز أيقونة 512×512 وFeature Graphic 1024×500.
@@ -41,3 +41,11 @@ build_aab.bat
 
 الملف الناتج:
 build\app\outputs\bundle\release\app-release.aab
+
+
+## إنشاء Upload Key
+استخدم:
+`generate_upload_key.bat`
+
+ثم راجع:
+`play_store/UPLOAD_KEY_GUIDE_AR.md`
