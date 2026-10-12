@@ -350,6 +350,23 @@ extension QuickToolInfo on QuickTool {
     QuickTool.templates => Icons.quickreply_rounded,
     QuickTool.favorites => Icons.star_rounded,
   };
+
+  String get description => switch (this) {
+    QuickTool.phone => 'فتح شاشة الاتصال بالرقم مباشرة',
+    QuickTool.sms => 'فتح تطبيق الرسائل مع الرقم والنص',
+    QuickTool.copyNumber => 'نسخ الرقم بصيغته الدولية',
+    QuickTool.copyLink => 'نسخ رابط مباشر للمحادثة',
+    QuickTool.shareLink => 'مشاركة رابط المحادثة مع أي تطبيق',
+    QuickTool.qr => 'إنشاء رمز QR للمحادثة وحفظه أو مشاركته',
+    QuickTool.templates => 'حفظ رسائل تستخدمها كثيرًا',
+    QuickTool.favorites => 'حفظ الأرقام المهمة والوصول لها بسرعة',
+  };
+
+  String get section => switch (this) {
+    QuickTool.phone || QuickTool.sms || QuickTool.copyNumber => 'التواصل',
+    QuickTool.copyLink || QuickTool.shareLink || QuickTool.qr => 'الروابط والمشاركة',
+    QuickTool.templates || QuickTool.favorites => 'التنظيم',
+  };
 }
 
 class HomePage extends StatefulWidget {
@@ -928,6 +945,18 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> openTools() async {
+    final tool = await Navigator.of(context).push<QuickTool>(
+      MaterialPageRoute<QuickTool>(
+        builder: (_) => const ToolsPage(),
+      ),
+    );
+
+    if (tool != null && mounted) {
+      await _handleQuickTool(tool);
+    }
+  }
+
   Future<void> openSettings() async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -1301,23 +1330,10 @@ class _HomePageState extends State<HomePage> {
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           actions: [
-            PopupMenuButton<QuickTool>(
-              tooltip: 'الأدوات',
+            IconButton(
+              tooltip: 'كل الأدوات',
+              onPressed: openTools,
               icon: const Icon(Icons.grid_view_rounded),
-              onSelected: _handleQuickTool,
-              itemBuilder: (context) => [
-                for (final tool in QuickTool.values)
-                  PopupMenuItem<QuickTool>(
-                    value: tool,
-                    child: Row(
-                      children: [
-                        Icon(tool.icon, size: 20),
-                        const SizedBox(width: 10),
-                        Text(tool.title),
-                      ],
-                    ),
-                  ),
-              ],
             ),
             IconButton(
               tooltip: 'الإعدادات',
@@ -1331,6 +1347,214 @@ class _HomePageState extends State<HomePage> {
             builder: (context, constraints) => loadingSavedData
                 ? _buildLoadingSkeleton(context, constraints)
                 : _buildMainContent(context, constraints),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ToolsPage extends StatelessWidget {
+  const ToolsPage({super.key});
+
+  static const _brandBlue = Color(0xFF087BAA);
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    const sections = <String>[
+      'التواصل',
+      'الروابط والمشاركة',
+      'التنظيم',
+    ];
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text(
+            'كل الأدوات',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+          children: <Widget>[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _brandBlue.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _brandBlue.withValues(alpha: 0.18),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: _brandBlue,
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: const Icon(
+                      Icons.bolt_rounded,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'أدوات رقم مباشر',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'اختر الأداة التي تريدها، وستُنفّذ باستخدام الرقم والرسالة في الشاشة الرئيسية.',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            height: 1.45,
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            for (final section in sections) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(2, 0, 2, 8),
+                child: Text(
+                  section,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: colors.primary,
+                  ),
+                ),
+              ),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final tools = QuickTool.values
+                      .where((tool) => tool.section == section)
+                      .toList();
+                  final columns = constraints.maxWidth >= 520 ? 3 : 2;
+
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: tools.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columns,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                      childAspectRatio: columns == 3 ? 1.25 : 1.05,
+                    ),
+                    itemBuilder: (context, index) {
+                      final tool = tools[index];
+                      return _ToolCard(
+                        tool: tool,
+                        onTap: () => Navigator.of(context).pop(tool),
+                      );
+                    },
+                  );
+                },
+              ),
+              const SizedBox(height: 18),
+            ],
+          ].animate(interval: 45.ms)
+              .fadeIn(
+                duration: 330.ms,
+                curve: Curves.easeOutCubic,
+              )
+              .slideY(
+                begin: 0.035,
+                end: 0,
+                duration: 380.ms,
+                curve: Curves.easeOutCubic,
+              ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ToolCard extends StatelessWidget {
+  final QuickTool tool;
+  final VoidCallback onTap;
+
+  const _ToolCard({
+    required this.tool,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    const brandBlue = Color(0xFF087BAA);
+
+    return Material(
+      color: colors.surface,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: colors.outlineVariant.withValues(alpha: 0.75),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: brandBlue.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(
+                  tool.icon,
+                  color: brandBlue,
+                  size: 23,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                tool.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                tool.description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  height: 1.3,
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
         ),
       ),
