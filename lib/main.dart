@@ -405,7 +405,73 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    _whatsAppChannel.setMethodCallHandler(_handleNativeMethodCall);
     loadSavedData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _consumeInitialSharedText();
+    });
+  }
+
+  Future<dynamic> _handleNativeMethodCall(MethodCall call) async {
+    if (call.method == 'incomingSharedText') {
+      final text = call.arguments as String?;
+      if (text != null && text.trim().isNotEmpty) {
+        await _applySharedText(text);
+      }
+    }
+    return null;
+  }
+
+  Future<void> _consumeInitialSharedText() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+
+    try {
+      final text = await _whatsAppChannel.invokeMethod<String>(
+        'consumeSharedText',
+      );
+      if (text != null && text.trim().isNotEmpty) {
+        await _applySharedText(text);
+      }
+    } on PlatformException {
+      // Ignore: sharing is an optional convenience feature.
+    }
+  }
+
+  String? _extractPhoneFromText(String text) {
+    final matches = RegExp(r'\+?\d[\d\s\-()]{5,}\d').allMatches(text);
+    if (matches.isEmpty) return null;
+
+    final candidates = matches
+        .map((match) => match.group(0)!.trim())
+        .toList()
+      ..sort((a, b) {
+        final aDigits = a.replaceAll(RegExp(r'[^0-9]'), '').length;
+        final bDigits = b.replaceAll(RegExp(r'[^0-9]'), '').length;
+        return bDigits.compareTo(aDigits);
+      });
+
+    return candidates.first;
+  }
+
+  Future<void> _applySharedText(String text) async {
+    final number = _extractPhoneFromText(text);
+
+    if (number == null) {
+      if (mounted) {
+        showMessage('لم يتم العثور على رقم جوال في النص المشارك');
+      }
+      return;
+    }
+
+    phoneController.text = number;
+    phoneController.selection = TextSelection.collapsed(
+      offset: phoneController.text.length,
+    );
+    await _detectCountryFromInternationalNumber(number);
+
+    if (mounted) {
+      showMessage('تم استيراد الرقم من المشاركة');
+    }
   }
 
   Future<void> loadSavedData() async {
@@ -505,20 +571,7 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    final matches = RegExp(r'\+?\d[\d\s\-()]{5,}\d').allMatches(text);
-    String value = text.trim();
-
-    if (matches.isNotEmpty) {
-      final candidates = matches
-          .map((match) => match.group(0)!.trim())
-          .toList()
-        ..sort((a, b) {
-          final aDigits = a.replaceAll(RegExp(r'[^0-9]'), '').length;
-          final bDigits = b.replaceAll(RegExp(r'[^0-9]'), '').length;
-          return bDigits.compareTo(aDigits);
-        });
-      value = candidates.first;
-    }
+    final value = _extractPhoneFromText(text) ?? text.trim();
 
     phoneController.text = value;
     phoneController.selection = TextSelection.collapsed(
@@ -1314,6 +1367,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _whatsAppChannel.setMethodCallHandler(null);
     phoneController.dispose();
     messageController.dispose();
     super.dispose();
