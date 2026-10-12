@@ -1,8 +1,8 @@
 name: watsapseed
-description: "A new Flutter project."
+description: "رقم مباشر - أدوات تواصل سريعة بدون حفظ الرقم في جهات الاتصال."
 publish_to: 'none'
 
-version: 1.1.0+18
+version: 1.1.0+19
 
 environment:
   sdk: ^3.13.3
