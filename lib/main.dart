@@ -443,6 +443,38 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _detectCountryFromInternationalNumber(String value) async {
+    final trimmed = value.trim();
+    if (!trimmed.startsWith('+') && !trimmed.startsWith('00')) return;
+
+    var digits = trimmed.replaceAll(RegExp(r'[^0-9]'), '');
+    if (trimmed.startsWith('00') && digits.startsWith('00')) {
+      digits = digits.substring(2);
+    }
+
+    final matching = countries
+        .where((country) => digits.startsWith(country.code))
+        .toList()
+      ..sort((a, b) => b.code.length.compareTo(a.code.length));
+
+    if (matching.isEmpty) return;
+
+    Country detected = matching.first;
+    final sameCodeAsCurrent = matching.any(
+      (country) =>
+          country.code == selectedCountry.code &&
+          country.name == selectedCountry.name,
+    );
+    if (sameCodeAsCurrent) {
+      detected = selectedCountry;
+    }
+
+    if (detected.name != selectedCountry.name ||
+        detected.code != selectedCountry.code) {
+      await changeCountry(detected);
+    }
+  }
+
   Future<void> pasteNumber() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final text = data?.text;
@@ -471,6 +503,7 @@ class _HomePageState extends State<HomePage> {
     phoneController.selection = TextSelection.collapsed(
       offset: phoneController.text.length,
     );
+    await _detectCountryFromInternationalNumber(value);
   }
 
   String preparePhoneNumber(String input) {
@@ -520,6 +553,37 @@ class _HomePageState extends State<HomePage> {
     return launchUrl(url, mode: LaunchMode.externalApplication);
   }
 
+  Future<void> _offerBrowserFallback(String number, String message) async {
+    if (!mounted) return;
+
+    final openBrowser = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('${selectedTarget.title} غير متاح'),
+        content: const Text(
+          'لم يتم العثور على التطبيق المحدد. هل تريد فتح رابط المحادثة عبر المتصفح؟',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('فتح عبر المتصفح'),
+          ),
+        ],
+      ),
+    );
+
+    if (openBrowser == true) {
+      final opened = await _openWhatsAppFallback(number, message);
+      if (!opened && mounted) {
+        showMessage('تعذر فتح رابط المحادثة');
+      }
+    }
+  }
+
   Future<void> openWhatsApp() async {
     FocusScope.of(context).unfocus();
 
@@ -550,7 +614,7 @@ class _HomePageState extends State<HomePage> {
       }
 
       if (!opened && mounted) {
-        showMessage('${selectedTarget.title} غير مثبت على الجهاز أو تعذر فتحه');
+        await _offerBrowserFallback(number, message);
       }
     } on PlatformException {
       if (mounted) {
