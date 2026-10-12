@@ -9,7 +9,7 @@
 - [x] سياسة خصوصية داخل التطبيق.
 - [x] مسودة سياسة خصوصية خارجية.
 - [x] مسودة صفحة متجر عربية.
-- [ ] اعتماد package name نهائي بدل com.example.watsapseed.
+- [x] اعتماد package name النهائي: com.alyafai.raqmmubasher.
 - [ ] إنشاء Upload Key حقيقي.
 - [ ] إنشاء android/key.properties محليًا.
 - [ ] نشر سياسة الخصوصية على رابط HTTPS عام.
@@ -30,15 +30,10 @@
 6. متطلبات Android developer verification تتضمن تسجيل package names على Google Play ابتداءً من 30 سبتمبر 2026؛ Play قد يسجل التطبيقات المؤهلة تلقائيًا، ويجب مراجعة حالة الحساب والحزمة في Play Console.
 
 ## قبل اختيار package name
-اسم الحزمة الحالي:
-com.example.watsapseed
-
-لا تستخدمه للنشر النهائي.
-
-اسم مقترح:
+اسم الحزمة النهائي المعتمد:
 com.alyafai.raqmmubasher
 
-لا يتم تغييره في المشروع إلا بعد اعتماده، لأن package name هو هوية أساسية للتطبيق على Google Play.
+تم تثبيته في namespace وapplicationId ومسار MainActivity. لا تغيّره بعد أول رفع إلى Google Play.
 
 ## طريقة إنشاء AAB بعد إعداد التوقيع
 شغل:
