@@ -5,6 +5,14 @@ plugins {
 }
 
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("key.properties")
+def hasReleaseSigning = keystorePropertiesFile.exists()
+
+if (hasReleaseSigning) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 def generatedLauncherResDir = file("$buildDir/generated/launcher-res")
 
 tasks.register("generateLauncherIcons") {
@@ -75,7 +83,7 @@ tasks.register("generateLauncherIcons") {
 
 android {
     namespace "com.example.watsapseed"
-    compileSdk flutter.compileSdkVersion
+    compileSdk 36
     ndkVersion flutter.ndkVersion
 
     compileOptions {
@@ -86,16 +94,29 @@ android {
     defaultConfig {
         applicationId "com.example.watsapseed"
         minSdk flutter.minSdkVersion
-        targetSdk flutter.targetSdkVersion
+        targetSdk 36
         versionCode flutter.versionCode
         versionName flutter.versionName
     }
 
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                keyAlias keystoreProperties["keyAlias"]
+                keyPassword keystoreProperties["keyPassword"]
+                storeFile rootProject.file(keystoreProperties["storeFile"])
+                storePassword keystoreProperties["storePassword"]
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // Debug signing is intentionally used so the APK can be built immediately.
-            // Replace with a release keystore before publishing to an app store.
-            signingConfig signingConfigs.debug
+            // Local test builds keep working without secrets.
+            // Play Store AAB builds must provide android/key.properties.
+            signingConfig hasReleaseSigning
+                ? signingConfigs.release
+                : signingConfigs.debug
         }
     }
 
