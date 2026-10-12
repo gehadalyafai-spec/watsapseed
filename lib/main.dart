@@ -399,6 +399,7 @@ class _HomePageState extends State<HomePage> {
   WhatsAppTarget selectedTarget = WhatsAppTarget.personal;
   bool openingWhatsApp = false;
   bool loadingSavedData = true;
+  bool showDhikr = true;
   String currentDhikr = 'سبحان الله وبحمده';
 
   static const brandBlue = Color(0xFF087BAA);
@@ -498,6 +499,7 @@ class _HomePageState extends State<HomePage> {
     final savedTarget = prefs.getString('whatsapp_target');
     final savedCountryCode = prefs.getString('country_code');
     final savedCountryName = prefs.getString('country_name');
+    final savedShowDhikr = prefs.getBool('show_dhikr') ?? true;
     final lastDhikrIndex = prefs.getInt('last_dhikr_index') ?? -1;
     final nextDhikrIndex = (lastDhikrIndex + 1) % _dhikrItems.length;
 
@@ -521,6 +523,7 @@ class _HomePageState extends State<HomePage> {
           orElse: () => countries.first,
         ),
       );
+      showDhikr = savedShowDhikr;
       currentDhikr = _dhikrItems[nextDhikrIndex];
       loadingSavedData = false;
     });
@@ -1045,6 +1048,12 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+
+    if (!mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      showDhikr = prefs.getBool('show_dhikr') ?? true;
+    });
   }
 
   Widget _buildLoadingSkeleton(
@@ -1453,8 +1462,10 @@ class _HomePageState extends State<HomePage> {
                 child: content,
               ),
             ),
-            SizedBox(height: compact ? 4 : 8),
-            _buildDhikrCard(context, compact),
+            if (showDhikr) ...[
+              SizedBox(height: compact ? 4 : 8),
+              _buildDhikrCard(context, compact),
+            ],
           ],
         ),
       ),
@@ -2499,12 +2510,28 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late bool isDarkMode;
   late AppFontStyle selectedFontStyle;
+  bool showDhikr = true;
 
   @override
   void initState() {
     super.initState();
     isDarkMode = widget.initialDarkMode;
     selectedFontStyle = widget.initialFontStyle;
+    _loadDhikrSetting();
+  }
+
+  Future<void> _loadDhikrSetting() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      showDhikr = prefs.getBool('show_dhikr') ?? true;
+    });
+  }
+
+  Future<void> _changeDhikrVisibility(bool value) async {
+    setState(() => showDhikr = value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('show_dhikr', value);
   }
 
   Future<void> _changeDarkMode(bool value) async {
@@ -2802,16 +2829,28 @@ class _SettingsPageState extends State<SettingsPage> {
             const SizedBox(height: 8),
             Card(
               clipBehavior: Clip.antiAlias,
-              child: SwitchListTile(
-                value: isDarkMode,
-                onChanged: _changeDarkMode,
-                secondary: Icon(
-                  isDarkMode
-                      ? LucideIcons.moon
-                      : LucideIcons.sun,
-                ),
-                title: const Text('الوضع الداكن'),
-                subtitle: Text(isDarkMode ? 'مفعّل' : 'غير مفعّل'),
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    value: isDarkMode,
+                    onChanged: _changeDarkMode,
+                    secondary: Icon(
+                      isDarkMode
+                          ? LucideIcons.moon
+                          : LucideIcons.sun,
+                    ),
+                    title: const Text('الوضع الداكن'),
+                    subtitle: Text(isDarkMode ? 'مفعّل' : 'غير مفعّل'),
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  SwitchListTile(
+                    value: showDhikr,
+                    onChanged: _changeDhikrVisibility,
+                    secondary: const Icon(Icons.auto_awesome_rounded),
+                    title: const Text('إظهار الذكر في الرئيسية'),
+                    subtitle: const Text('ذكر بسيط يتغير عند كل تشغيل للتطبيق'),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 18),
