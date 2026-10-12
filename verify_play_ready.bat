@@ -37,12 +37,18 @@ if not defined KEYTOOL_OK (
 
 echo.
 echo [3/8] Checking final package name...
-findstr /C:"applicationId "com.alyafai.raqmmubasher"" android\app\build.gradle >nul
+findstr /C:"applicationId" android\app\build.gradle >nul
 if errorlevel 1 (
-  echo FAIL: Final applicationId was not found.
+  echo FAIL: applicationId entry was not found.
   set FAIL=1
 ) else (
-  echo OK: com.alyafai.raqmmubasher
+  findstr /C:"com.alyafai.raqmmubasher" android\app\build.gradle >nul
+  if errorlevel 1 (
+    echo FAIL: Final package name was not found.
+    set FAIL=1
+  ) else (
+    echo OK: com.alyafai.raqmmubasher
+  )
 )
 
 echo.
