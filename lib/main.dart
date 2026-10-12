@@ -761,18 +761,18 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<Uint8List?> _captureQrPng(GlobalKey qrKey) async {
+    final renderObject = qrKey.currentContext?.findRenderObject();
+    if (renderObject is! RenderRepaintBoundary) return null;
+
+    final image = await renderObject.toImage(pixelRatio: 4);
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    return byteData?.buffer.asUint8List();
+  }
+
   Future<void> _shareQrImage(GlobalKey qrKey, String link) async {
     try {
-      final renderObject = qrKey.currentContext?.findRenderObject();
-      if (renderObject is! RenderRepaintBoundary) {
-        showMessage('تعذر تجهيز صورة QR');
-        return;
-      }
-
-      final image = await renderObject.toImage(pixelRatio: 4);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      final bytes = byteData?.buffer.asUint8List();
-
+      final bytes = await _captureQrPng(qrKey);
       if (bytes == null || bytes.isEmpty) {
         showMessage('تعذر تجهيز صورة QR');
         return;
@@ -781,7 +781,7 @@ class _HomePageState extends State<HomePage> {
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         await _whatsAppChannel.invokeMethod<bool>('shareImage', {
           'bytes': bytes,
-          'fileName': 'direct-number-qr.png',
+          'fileName': 'raqm-mubasher-qr.png',
           'text': link,
         });
       } else {
@@ -792,6 +792,38 @@ class _HomePageState extends State<HomePage> {
       if (mounted) showMessage('تعذرت مشاركة صورة QR');
     } catch (_) {
       if (mounted) showMessage('تعذرت مشاركة صورة QR');
+    }
+  }
+
+  Future<void> _saveQrImage(GlobalKey qrKey) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      showMessage('حفظ الصورة متاح حاليًا على Android');
+      return;
+    }
+
+    try {
+      final bytes = await _captureQrPng(qrKey);
+      if (bytes == null || bytes.isEmpty) {
+        showMessage('تعذر تجهيز صورة QR');
+        return;
+      }
+
+      final savedAt = await _whatsAppChannel.invokeMethod<String>('saveImage', {
+        'bytes': bytes,
+        'fileName': 'raqm-mubasher-qr.png',
+      });
+
+      if (mounted) {
+        showMessage(
+          savedAt == null || savedAt.isEmpty
+              ? 'تم حفظ صورة QR'
+              : 'تم حفظ صورة QR بنجاح',
+        );
+      }
+    } on PlatformException {
+      if (mounted) showMessage('تعذر حفظ صورة QR');
+    } catch (_) {
+      if (mounted) showMessage('تعذر حفظ صورة QR');
     }
   }
 
@@ -833,6 +865,11 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           actions: [
+            TextButton.icon(
+              onPressed: () => _saveQrImage(qrKey),
+              icon: const Icon(Icons.download_rounded),
+              label: const Text('حفظ الصورة'),
+            ),
             TextButton.icon(
               onPressed: () => _shareQrImage(qrKey, link),
               icon: const Icon(Icons.share_rounded),
