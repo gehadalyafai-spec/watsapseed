@@ -15,14 +15,44 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val channelName = "watsapseed/whatsapp"
+    private var methodChannel: MethodChannel? = null
+    private var pendingSharedText: String? = null
+
+    private fun extractSharedText(sourceIntent: Intent?): String? {
+        if (sourceIntent?.action != Intent.ACTION_SEND) return null
+        if (sourceIntent.type != "text/plain") return null
+        return sourceIntent.getStringExtra(Intent.EXTRA_TEXT)
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+
+        val sharedText = extractSharedText(intent)
+        if (sharedText != null) {
+            pendingSharedText = sharedText
+            methodChannel?.invokeMethod("incomingSharedText", sharedText)
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(
+        methodChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             channelName
-        ).setMethodCallHandler { call, result ->
+        )
+        pendingSharedText = pendingSharedText ?: extractSharedText(intent)
+
+        methodChannel?.setMethodCallHandler { call, result ->
+            if (call.method == "consumeSharedText") {
+                val sharedText = pendingSharedText
+                pendingSharedText = null
+                result.success(sharedText)
+                return@setMethodCallHandler
+            }
             if (call.method == "saveImage") {
                 val bytes = call.argument<ByteArray>("bytes")
                 val fileName = call.argument<String>("fileName")
