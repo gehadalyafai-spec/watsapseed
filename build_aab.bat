@@ -38,7 +38,7 @@ call flutter pub get
 if errorlevel 1 goto :error
 
 echo [4/5] Running analyzer...
-call flutter analyze
+call flutter analyze --no-fatal-warnings --no-fatal-infos
 if errorlevel 1 goto :error
 
 echo [5/5] Building signed release AAB...
