@@ -1978,7 +1978,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                                 child: ListTile(
                                   leading: CircleAvatar(
                                     child: Text(
-                                      name.isEmpty ? '★' : name.characters.first,
+                                      name.isEmpty ? '★' : name.substring(0, 1),
                                     ),
                                   ),
                                   title: Text(name),
