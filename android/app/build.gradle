@@ -82,7 +82,7 @@ tasks.register("generateLauncherIcons") {
 }
 
 android {
-    namespace "com.example.watsapseed"
+    namespace "com.alyafai.raqmmubasher"
     compileSdk 36
     ndkVersion flutter.ndkVersion
 
@@ -92,7 +92,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.example.watsapseed"
+        applicationId "com.alyafai.raqmmubasher"
         minSdk flutter.minSdkVersion
         targetSdk 36
         versionCode flutter.versionCode
