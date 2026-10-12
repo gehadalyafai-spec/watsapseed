@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -2199,6 +2201,124 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Future<void> _copyLocalBackup() async {
+    final prefs = await SharedPreferences.getInstance();
+    final payload = <String, Object>{
+      'format': 'raqm-mubasher-backup',
+      'version': 1,
+      'message_templates': prefs.getStringList('message_templates') ?? <String>[],
+      'favorite_numbers': prefs.getStringList('favorite_numbers') ?? <String>[],
+    };
+
+    await Clipboard.setData(
+      ClipboardData(text: jsonEncode(payload)),
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'تم نسخ النسخة الاحتياطية إلى الحافظة',
+          textAlign: TextAlign.center,
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _restoreLocalBackup() async {
+    final clipboard = await Clipboard.getData(Clipboard.kTextPlain);
+    final raw = clipboard?.text?.trim();
+
+    if (raw == null || raw.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'لا توجد نسخة احتياطية في الحافظة',
+            textAlign: TextAlign.center,
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    List<String>? templates;
+    List<String>? favorites;
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map ||
+          decoded['format'] != 'raqm-mubasher-backup' ||
+          decoded['version'] != 1) {
+        throw const FormatException('Invalid backup');
+      }
+
+      final templatesRaw = decoded['message_templates'];
+      final favoritesRaw = decoded['favorite_numbers'];
+
+      if (templatesRaw is! List || favoritesRaw is! List) {
+        throw const FormatException('Invalid backup lists');
+      }
+
+      templates = templatesRaw.whereType<String>().toList();
+      favorites = favoritesRaw.whereType<String>().toList();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'النص الموجود في الحافظة ليس نسخة احتياطية صالحة',
+            textAlign: TextAlign.center,
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('استعادة النسخة الاحتياطية'),
+        content: Text(
+          'سيتم استبدال الرسائل الجاهزة والمفضلة الحالية بما في النسخة الاحتياطية.\n\n'
+          'الرسائل: ${templates!.length}\n'
+          'المفضلة: ${favorites!.length}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('استعادة'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('message_templates', templates!);
+    await prefs.setStringList('favorite_numbers', favorites!);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'تمت استعادة النسخة الاحتياطية بنجاح',
+          textAlign: TextAlign.center,
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _clearSavedContent() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -2322,12 +2442,32 @@ class _SettingsPageState extends State<SettingsPage> {
             const SizedBox(height: 8),
             Card(
               clipBehavior: Clip.antiAlias,
-              child: ListTile(
-                leading: const Icon(Icons.delete_outline_rounded),
-                title: const Text('مسح الرسائل والمفضلة'),
-                subtitle: const Text('حذف المحتوى المحفوظ محليًا على الجهاز'),
-                trailing: const Icon(LucideIcons.chevronLeft),
-                onTap: _clearSavedContent,
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.backup_rounded),
+                    title: const Text('نسخ نسخة احتياطية'),
+                    subtitle: const Text('نسخ الرسائل والمفضلة إلى الحافظة'),
+                    trailing: const Icon(LucideIcons.chevronLeft),
+                    onTap: _copyLocalBackup,
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  ListTile(
+                    leading: const Icon(Icons.restore_rounded),
+                    title: const Text('استعادة نسخة احتياطية'),
+                    subtitle: const Text('استعادة نسخة موجودة في الحافظة'),
+                    trailing: const Icon(LucideIcons.chevronLeft),
+                    onTap: _restoreLocalBackup,
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  ListTile(
+                    leading: const Icon(Icons.delete_outline_rounded),
+                    title: const Text('مسح الرسائل والمفضلة'),
+                    subtitle: const Text('حذف المحتوى المحفوظ محليًا على الجهاز'),
+                    trailing: const Icon(LucideIcons.chevronLeft),
+                    onTap: _clearSavedContent,
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 18),
