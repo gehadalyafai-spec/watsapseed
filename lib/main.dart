@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -286,6 +287,38 @@ extension WhatsAppTargetInfo on WhatsAppTarget {
       this == WhatsAppTarget.personal ? 'com.whatsapp' : 'com.whatsapp.w4b';
 }
 
+enum QuickTool {
+  phone,
+  sms,
+  copyLink,
+  shareLink,
+  qr,
+  templates,
+  favorites,
+}
+
+extension QuickToolInfo on QuickTool {
+  String get title => switch (this) {
+    QuickTool.phone => 'اتصال مباشر',
+    QuickTool.sms => 'رسالة SMS',
+    QuickTool.copyLink => 'نسخ رابط المحادثة',
+    QuickTool.shareLink => 'مشاركة رابط المحادثة',
+    QuickTool.qr => 'إنشاء QR',
+    QuickTool.templates => 'الرسائل الجاهزة',
+    QuickTool.favorites => 'المفضلة',
+  };
+
+  IconData get icon => switch (this) {
+    QuickTool.phone => Icons.phone_rounded,
+    QuickTool.sms => Icons.sms_rounded,
+    QuickTool.copyLink => Icons.content_copy_rounded,
+    QuickTool.shareLink => Icons.share_rounded,
+    QuickTool.qr => Icons.qr_code_2_rounded,
+    QuickTool.templates => Icons.quickreply_rounded,
+    QuickTool.favorites => Icons.star_rounded,
+  };
+}
+
 class HomePage extends StatefulWidget {
   final bool isDarkMode;
   final AppFontStyle selectedFontStyle;
@@ -361,7 +394,25 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    phoneController.text = text.trim();
+    final matches = RegExp(r'\+?\d[\d\s\-()]{5,}\d').allMatches(text);
+    String value = text.trim();
+
+    if (matches.isNotEmpty) {
+      final candidates = matches
+          .map((match) => match.group(0)!.trim())
+          .toList()
+        ..sort((a, b) {
+          final aDigits = a.replaceAll(RegExp(r'[^0-9]'), '').length;
+          final bDigits = b.replaceAll(RegExp(r'[^0-9]'), '').length;
+          return bDigits.compareTo(aDigits);
+        });
+      value = candidates.first;
+    }
+
+    phoneController.text = value;
+    phoneController.selection = TextSelection.collapsed(
+      offset: phoneController.text.length,
+    );
   }
 
   String preparePhoneNumber(String input) {
@@ -470,6 +521,190 @@ class _HomePageState extends State<HomePage> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  String? _currentNumber() {
+    final input = phoneController.text.trim();
+    if (input.isEmpty) {
+      showMessage('اكتب رقم الجوال أولاً');
+      return null;
+    }
+
+    final number = preparePhoneNumber(input);
+    if (!isPhoneValid(number)) {
+      showMessage('تأكد من كتابة رقم جوال صحيح');
+      return null;
+    }
+    return number;
+  }
+
+  Uri _currentChatUri(String number) {
+    final message = messageController.text.trim();
+    return message.isEmpty
+        ? Uri.https('wa.me', '/$number')
+        : Uri.https('wa.me', '/$number', {'text': message});
+  }
+
+  Future<void> _handleQuickTool(QuickTool tool) async {
+    switch (tool) {
+      case QuickTool.phone:
+        await _openPhoneCall();
+      case QuickTool.sms:
+        await _openSms();
+      case QuickTool.copyLink:
+        await _copyChatLink();
+      case QuickTool.shareLink:
+        await _shareChatLink();
+      case QuickTool.qr:
+        await _showQrCode();
+      case QuickTool.templates:
+        await _openMessageTemplates();
+      case QuickTool.favorites:
+        await _openFavorites();
+    }
+  }
+
+  Future<void> _openPhoneCall() async {
+    final number = _currentNumber();
+    if (number == null) return;
+
+    final opened = await launchUrl(
+      Uri(scheme: 'tel', path: '+$number'),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!opened && mounted) showMessage('تعذر فتح تطبيق الاتصال');
+  }
+
+  Future<void> _openSms() async {
+    final number = _currentNumber();
+    if (number == null) return;
+
+    final message = messageController.text.trim();
+    final uri = Uri(
+      scheme: 'sms',
+      path: '+$number',
+      queryParameters: message.isEmpty ? null : {'body': message},
+    );
+
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) showMessage('تعذر فتح تطبيق الرسائل');
+  }
+
+  Future<void> _copyChatLink() async {
+    final number = _currentNumber();
+    if (number == null) return;
+
+    await Clipboard.setData(
+      ClipboardData(text: _currentChatUri(number).toString()),
+    );
+    if (mounted) showMessage('تم نسخ رابط المحادثة');
+  }
+
+  Future<void> _shareChatLink() async {
+    final number = _currentNumber();
+    if (number == null) return;
+
+    final text = _currentChatUri(number).toString();
+    try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        await _whatsAppChannel.invokeMethod<bool>('shareText', {'text': text});
+      } else {
+        await Clipboard.setData(ClipboardData(text: text));
+        if (mounted) {
+          showMessage('تم نسخ الرابط للمشاركة');
+        }
+      }
+    } on PlatformException {
+      if (mounted) showMessage('تعذرت مشاركة الرابط');
+    }
+  }
+
+  Future<void> _showQrCode() async {
+    final number = _currentNumber();
+    if (number == null || !mounted) return;
+
+    final link = _currentChatUri(number).toString();
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        final colors = Theme.of(dialogContext).colorScheme;
+        return AlertDialog(
+          title: const Text('رمز QR للمحادثة'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: QrImageView(
+                  data: link,
+                  version: QrVersions.auto,
+                  size: 210,
+                  backgroundColor: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'امسح الرمز لفتح المحادثة مباشرة',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: colors.onSurfaceVariant),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: link));
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                }
+                if (mounted) showMessage('تم نسخ رابط المحادثة');
+              },
+              child: const Text('نسخ الرابط'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('إغلاق'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _openMessageTemplates() async {
+    final message = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => const MessageTemplatesPage(),
+      ),
+    );
+
+    if (message != null && mounted) {
+      messageController.text = message;
+      messageController.selection = TextSelection.collapsed(
+        offset: messageController.text.length,
+      );
+    }
+  }
+
+  Future<void> _openFavorites() async {
+    final number = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => FavoritesPage(
+          initialNumber: phoneController.text.trim(),
+        ),
+      ),
+    );
+
+    if (number != null && mounted) {
+      phoneController.text = number;
+      phoneController.selection = TextSelection.collapsed(
+        offset: phoneController.text.length,
+      );
+    }
   }
 
   Future<void> openSettings() async {
@@ -833,6 +1068,24 @@ class _HomePageState extends State<HomePage> {
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           actions: [
+            PopupMenuButton<QuickTool>(
+              tooltip: 'الأدوات',
+              icon: const Icon(Icons.grid_view_rounded),
+              onSelected: _handleQuickTool,
+              itemBuilder: (context) => [
+                for (final tool in QuickTool.values)
+                  PopupMenuItem<QuickTool>(
+                    value: tool,
+                    child: Row(
+                      children: [
+                        Icon(tool.icon, size: 20),
+                        const SizedBox(width: 10),
+                        Text(tool.title),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
             IconButton(
               tooltip: 'الإعدادات',
               onPressed: openSettings,
@@ -847,6 +1100,363 @@ class _HomePageState extends State<HomePage> {
                 : _buildMainContent(context, constraints),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class MessageTemplatesPage extends StatefulWidget {
+  const MessageTemplatesPage({super.key});
+
+  @override
+  State<MessageTemplatesPage> createState() => _MessageTemplatesPageState();
+}
+
+class _MessageTemplatesPageState extends State<MessageTemplatesPage> {
+  static const _storageKey = 'message_templates';
+  final _controller = TextEditingController();
+  List<String> templates = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() => templates = prefs.getStringList(_storageKey) ?? []);
+  }
+
+  Future<void> _save() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_storageKey, templates);
+  }
+
+  Future<void> _editTemplate({int? index}) async {
+    _controller.text = index == null ? '' : templates[index];
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(index == null ? 'رسالة جديدة' : 'تعديل الرسالة'),
+        content: TextField(
+          controller: _controller,
+          autofocus: true,
+          minLines: 3,
+          maxLines: 6,
+          decoration: const InputDecoration(
+            hintText: 'اكتب الرسالة الجاهزة',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('حفظ'),
+          ),
+        ],
+      ),
+    );
+
+    final value = _controller.text.trim();
+    if (saved != true || value.isEmpty || !mounted) return;
+
+    setState(() {
+      if (index == null) {
+        templates.insert(0, value);
+      } else {
+        templates[index] = value;
+      }
+    });
+    await _save();
+  }
+
+  Future<void> _deleteTemplate(int index) async {
+    setState(() => templates.removeAt(index));
+    await _save();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('الرسائل الجاهزة'),
+          actions: [
+            IconButton(
+              tooltip: 'إضافة رسالة',
+              onPressed: () => _editTemplate(),
+              icon: const Icon(Icons.add_rounded),
+            ),
+          ],
+        ),
+        body: templates.isEmpty
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.quickreply_rounded, size: 54),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'لا توجد رسائل جاهزة بعد',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'احفظ الرسائل التي تستخدمها كثيرًا ثم اخترها بضغطة واحدة.',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: () => _editTemplate(),
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('إضافة رسالة'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: templates.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, index) => Card(
+                  child: ListTile(
+                    title: Text(
+                      templates[index],
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () => Navigator.of(context).pop(templates[index]),
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'edit') _editTemplate(index: index);
+                        if (value == 'delete') _deleteTemplate(index);
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Text('تعديل'),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Text('حذف'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class FavoritesPage extends StatefulWidget {
+  final String initialNumber;
+
+  const FavoritesPage({super.key, required this.initialNumber});
+
+  @override
+  State<FavoritesPage> createState() => _FavoritesPageState();
+}
+
+class _FavoritesPageState extends State<FavoritesPage> {
+  static const _storageKey = 'favorite_numbers';
+  List<String> favorites = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  String _nameOf(String entry) {
+    final separator = entry.indexOf('\t');
+    return separator == -1 ? entry : entry.substring(0, separator);
+  }
+
+  String _numberOf(String entry) {
+    final separator = entry.indexOf('\t');
+    return separator == -1 ? '' : entry.substring(separator + 1);
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() => favorites = prefs.getStringList(_storageKey) ?? []);
+  }
+
+  Future<void> _save() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_storageKey, favorites);
+  }
+
+  Future<void> _editFavorite({int? index}) async {
+    final nameController = TextEditingController(
+      text: index == null ? '' : _nameOf(favorites[index]),
+    );
+    final numberController = TextEditingController(
+      text: index == null ? widget.initialNumber : _numberOf(favorites[index]),
+    );
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(index == null ? 'إضافة للمفضلة' : 'تعديل المفضلة'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'الاسم'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: numberController,
+              keyboardType: TextInputType.phone,
+              textDirection: TextDirection.ltr,
+              decoration: const InputDecoration(labelText: 'رقم الجوال'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('حفظ'),
+          ),
+        ],
+      ),
+    );
+
+    final name = nameController.text.trim();
+    final number = numberController.text.trim();
+    nameController.dispose();
+    numberController.dispose();
+
+    if (saved != true || name.isEmpty || number.isEmpty || !mounted) return;
+
+    final entry = '$name\t$number';
+    setState(() {
+      if (index == null) {
+        favorites.insert(0, entry);
+      } else {
+        favorites[index] = entry;
+      }
+    });
+    await _save();
+  }
+
+  Future<void> _deleteFavorite(int index) async {
+    setState(() => favorites.removeAt(index));
+    await _save();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('المفضلة'),
+          actions: [
+            IconButton(
+              tooltip: 'إضافة رقم',
+              onPressed: () => _editFavorite(),
+              icon: const Icon(Icons.person_add_alt_1_rounded),
+            ),
+          ],
+        ),
+        body: favorites.isEmpty
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.star_outline_rounded, size: 56),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'لا توجد أرقام مفضلة',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'احفظ الأرقام التي تحتاجها كثيرًا بعيدًا عن الشاشة الرئيسية.',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: () => _editFavorite(),
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('إضافة رقم'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: favorites.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final name = _nameOf(favorites[index]);
+                  final number = _numberOf(favorites[index]);
+                  return Card(
+                    child: ListTile(
+                      leading: const CircleAvatar(
+                        child: Icon(Icons.person_rounded),
+                      ),
+                      title: Text(name),
+                      subtitle: Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: Text(number, textAlign: TextAlign.right),
+                      ),
+                      onTap: () => Navigator.of(context).pop(number),
+                      trailing: PopupMenuButton<String>(
+                        onSelected: (value) {
+                          if (value == 'edit') _editFavorite(index: index);
+                          if (value == 'delete') _deleteFavorite(index);
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(
+                            value: 'edit',
+                            child: Text('تعديل'),
+                          ),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Text('حذف'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
       ),
     );
   }
