@@ -19,9 +19,20 @@ class MainActivity : FlutterActivity() {
     private var pendingSharedText: String? = null
 
     private fun extractSharedText(sourceIntent: Intent?): String? {
-        if (sourceIntent?.action != Intent.ACTION_SEND) return null
-        if (sourceIntent.type != "text/plain") return null
-        return sourceIntent.getStringExtra(Intent.EXTRA_TEXT)
+        if (sourceIntent == null) return null
+
+        val text = when (sourceIntent.action) {
+            Intent.ACTION_SEND -> {
+                if (sourceIntent.type != "text/plain") return null
+                sourceIntent.getStringExtra(Intent.EXTRA_TEXT)
+            }
+            Intent.ACTION_PROCESS_TEXT -> {
+                sourceIntent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
+            }
+            else -> null
+        }
+
+        return text
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
     }
