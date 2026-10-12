@@ -20,9 +20,16 @@ if errorlevel 1 (
 
 echo.
 echo [2/8] Checking Java keytool...
-where keytool >nul 2>&1
-if errorlevel 1 (
-  echo FAIL: keytool was not found in PATH.
+set "KEYTOOL_OK="
+where keytool >nul 2>&1 && set "KEYTOOL_OK=1"
+if not defined KEYTOOL_OK if defined JAVA_HOME if exist "%JAVA_HOME%\bin\keytool.exe" set "KEYTOOL_OK=1"
+if not defined KEYTOOL_OK if exist "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" set "KEYTOOL_OK=1"
+if not defined KEYTOOL_OK if exist "D:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" set "KEYTOOL_OK=1"
+if not defined KEYTOOL_OK if exist "C:\Program Files\Java\jdk-17\bin\keytool.exe" set "KEYTOOL_OK=1"
+if not defined KEYTOOL_OK if exist "D:\Dev\Java\jdk-17\bin\keytool.exe" set "KEYTOOL_OK=1"
+
+if not defined KEYTOOL_OK (
+  echo FAIL: keytool could not be found.
   set FAIL=1
 ) else (
   echo OK
