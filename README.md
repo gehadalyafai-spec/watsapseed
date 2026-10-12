@@ -55,3 +55,18 @@ build\app\outputs\bundle\release\app-release.aab
 - لا ترفع ملف `android/key.properties` أو ملفات keystore إلى GitHub.
 - راجع قائمة النشر في:
   `play_store/RELEASE_CHECKLIST_AR.md`
+
+
+## فحص الجاهزية لـ Google Play
+بعد إنشاء Upload Key شغّل:
+```powershell
+verify_play_ready.bat
+```
+
+ثم:
+```powershell
+build_aab.bat
+```
+
+دليل Play Console:
+`play_store/PLAY_CONSOLE_STEPS_AR.md`
