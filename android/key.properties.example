@@ -1,0 +1,10 @@
+# Copy this file to android/key.properties and fill in your real values.
+# NEVER commit android/key.properties or your .jks/.keystore file.
+#
+# The path below is relative to the android/ directory because build.gradle
+# loads it with rootProject.file(...).
+
+storePassword=CHANGE_ME
+keyPassword=CHANGE_ME
+keyAlias=upload
+storeFile=upload-keystore.jks
