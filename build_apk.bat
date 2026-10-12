@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0"
 echo ==================================================
-echo   WhatsApp Fast - Clean Release APK Build
+echo   Raqm Mubasher - Clean Release APK Build
 echo ==================================================
 echo.
 
