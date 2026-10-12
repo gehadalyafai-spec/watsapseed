@@ -406,10 +406,13 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _whatsAppChannel.setMethodCallHandler(_handleNativeMethodCall);
-    loadSavedData();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _consumeInitialSharedText();
-    });
+    _initializeHome();
+  }
+
+  Future<void> _initializeHome() async {
+    await loadSavedData();
+    if (!mounted) return;
+    await _consumeInitialSharedText();
   }
 
   Future<dynamic> _handleNativeMethodCall(MethodCall call) async {
