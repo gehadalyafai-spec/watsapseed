@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -759,11 +761,47 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _shareQrImage(GlobalKey qrKey, String link) async {
+    try {
+      final renderObject = qrKey.currentContext?.findRenderObject();
+      if (renderObject is! RenderRepaintBoundary) {
+        showMessage('تعذر تجهيز صورة QR');
+        return;
+      }
+
+      final image = await renderObject.toImage(pixelRatio: 4);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      final bytes = byteData?.buffer.asUint8List();
+
+      if (bytes == null || bytes.isEmpty) {
+        showMessage('تعذر تجهيز صورة QR');
+        return;
+      }
+
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        await _whatsAppChannel.invokeMethod<bool>('shareImage', {
+          'bytes': bytes,
+          'fileName': 'direct-number-qr.png',
+          'text': link,
+        });
+      } else {
+        await Clipboard.setData(ClipboardData(text: link));
+        if (mounted) showMessage('تم نسخ الرابط للمشاركة');
+      }
+    } on PlatformException {
+      if (mounted) showMessage('تعذرت مشاركة صورة QR');
+    } catch (_) {
+      if (mounted) showMessage('تعذرت مشاركة صورة QR');
+    }
+  }
+
   Future<void> _showQrCode() async {
     final number = _currentNumber();
     if (number == null || !mounted) return;
 
     final link = _currentChatUri(number).toString();
+    final qrKey = GlobalKey();
+
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
@@ -773,17 +811,17 @@ class _HomePageState extends State<HomePage> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
+              RepaintBoundary(
+                key: qrKey,
+                child: Container(
+                  padding: const EdgeInsets.all(18),
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: QrImageView(
-                  data: link,
-                  version: QrVersions.auto,
-                  size: 210,
-                  backgroundColor: Colors.white,
+                  child: QrImageView(
+                    data: link,
+                    version: QrVersions.auto,
+                    size: 220,
+                    backgroundColor: Colors.white,
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -795,12 +833,14 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           actions: [
+            TextButton.icon(
+              onPressed: () => _shareQrImage(qrKey, link),
+              icon: const Icon(Icons.share_rounded),
+              label: const Text('مشاركة الصورة'),
+            ),
             TextButton(
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: link));
-                if (dialogContext.mounted) {
-                  Navigator.of(dialogContext).pop();
-                }
                 if (mounted) showMessage('تم نسخ رابط المحادثة');
               },
               child: const Text('نسخ الرابط'),
@@ -1368,6 +1408,8 @@ class _CountrySearchDialogState extends State<CountrySearchDialog> {
   }
 }
 
+enum SavedListSort { newest, oldest, alphabetical }
+
 class MessageTemplatesPage extends StatefulWidget {
   const MessageTemplatesPage({super.key});
 
@@ -1378,12 +1420,36 @@ class MessageTemplatesPage extends StatefulWidget {
 class _MessageTemplatesPageState extends State<MessageTemplatesPage> {
   static const _storageKey = 'message_templates';
   final _controller = TextEditingController();
+  final _searchController = TextEditingController();
   List<String> templates = [];
+  String query = '';
+  SavedListSort sort = SavedListSort.newest;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  List<MapEntry<int, String>> get visibleTemplates {
+    final normalized = query.trim().toLowerCase();
+    final items = templates.asMap().entries.where((entry) {
+      return normalized.isEmpty ||
+          entry.value.toLowerCase().contains(normalized);
+    }).toList();
+
+    switch (sort) {
+      case SavedListSort.newest:
+        items.sort((a, b) => a.key.compareTo(b.key));
+        break;
+      case SavedListSort.oldest:
+        items.sort((a, b) => b.key.compareTo(a.key));
+        break;
+      case SavedListSort.alphabetical:
+        items.sort((a, b) => a.value.compareTo(b.value));
+        break;
+    }
+    return items;
   }
 
   Future<void> _load() async {
@@ -1397,6 +1463,18 @@ class _MessageTemplatesPageState extends State<MessageTemplatesPage> {
     await prefs.setStringList(_storageKey, templates);
   }
 
+  void _showDuplicateMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'هذه الرسالة محفوظة بالفعل',
+          textAlign: TextAlign.center,
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _editTemplate({int? index}) async {
     _controller.text = index == null ? '' : templates[index];
     final saved = await showDialog<bool>(
@@ -1407,7 +1485,7 @@ class _MessageTemplatesPageState extends State<MessageTemplatesPage> {
           controller: _controller,
           autofocus: true,
           minLines: 3,
-          maxLines: 6,
+          maxLines: 7,
           decoration: const InputDecoration(
             hintText: 'اكتب الرسالة الجاهزة',
           ),
@@ -1428,6 +1506,16 @@ class _MessageTemplatesPageState extends State<MessageTemplatesPage> {
     final value = _controller.text.trim();
     if (saved != true || value.isEmpty || !mounted) return;
 
+    final duplicate = templates.asMap().entries.any(
+      (entry) =>
+          entry.key != index &&
+          entry.value.trim().toLowerCase() == value.toLowerCase(),
+    );
+    if (duplicate) {
+      _showDuplicateMessage();
+      return;
+    }
+
     setState(() {
       if (index == null) {
         templates.insert(0, value);
@@ -1446,17 +1534,44 @@ class _MessageTemplatesPageState extends State<MessageTemplatesPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final visible = visibleTemplates;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('الرسائل الجاهزة'),
+          title: Text(
+            templates.isEmpty
+                ? 'الرسائل الجاهزة'
+                : 'الرسائل الجاهزة (${templates.length})',
+          ),
           actions: [
+            if (templates.length > 1)
+              PopupMenuButton<SavedListSort>(
+                tooltip: 'الترتيب',
+                icon: const Icon(Icons.sort_rounded),
+                initialValue: sort,
+                onSelected: (value) => setState(() => sort = value),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: SavedListSort.newest,
+                    child: Text('الأحدث أولاً'),
+                  ),
+                  PopupMenuItem(
+                    value: SavedListSort.oldest,
+                    child: Text('الأقدم أولاً'),
+                  ),
+                  PopupMenuItem(
+                    value: SavedListSort.alphabetical,
+                    child: Text('ترتيب أبجدي'),
+                  ),
+                ],
+              ),
             IconButton(
               tooltip: 'إضافة رسالة',
               onPressed: () => _editTemplate(),
@@ -1495,36 +1610,82 @@ class _MessageTemplatesPageState extends State<MessageTemplatesPage> {
                   ),
                 ),
               )
-            : ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: templates.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (context, index) => Card(
-                  child: ListTile(
-                    title: Text(
-                      templates[index],
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onTap: () => Navigator.of(context).pop(templates[index]),
-                    trailing: PopupMenuButton<String>(
-                      onSelected: (value) {
-                        if (value == 'edit') _editTemplate(index: index);
-                        if (value == 'delete') _deleteTemplate(index);
-                      },
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(
-                          value: 'edit',
-                          child: Text('تعديل'),
-                        ),
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: Text('حذف'),
-                        ),
-                      ],
+            : Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (value) => setState(() => query = value),
+                      decoration: InputDecoration(
+                        hintText: 'ابحث في الرسائل',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        suffixIcon: query.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: 'مسح البحث',
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() => query = '');
+                                },
+                                icon: const Icon(Icons.close_rounded),
+                              ),
+                      ),
                     ),
                   ),
-                ),
+                  Expanded(
+                    child: visible.isEmpty
+                        ? const Center(child: Text('لا توجد نتائج'))
+                        : ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                            itemCount: visible.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 8),
+                            itemBuilder: (context, listIndex) {
+                              final item = visible[listIndex];
+                              final sourceIndex = item.key;
+                              final text = item.value;
+                              return Card(
+                                child: ListTile(
+                                  leading: const CircleAvatar(
+                                    child: Icon(Icons.quickreply_rounded),
+                                  ),
+                                  title: Text(
+                                    text,
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  subtitle: const Text(
+                                    'اضغط لاستخدام الرسالة',
+                                  ),
+                                  onTap: () =>
+                                      Navigator.of(context).pop(text),
+                                  trailing: PopupMenuButton<String>(
+                                    onSelected: (value) {
+                                      if (value == 'edit') {
+                                        _editTemplate(index: sourceIndex);
+                                      }
+                                      if (value == 'delete') {
+                                        _deleteTemplate(sourceIndex);
+                                      }
+                                    },
+                                    itemBuilder: (_) => const [
+                                      PopupMenuItem(
+                                        value: 'edit',
+                                        child: Text('تعديل'),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'delete',
+                                        child: Text('حذف'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
               ),
       ),
     );
@@ -1542,7 +1703,10 @@ class FavoritesPage extends StatefulWidget {
 
 class _FavoritesPageState extends State<FavoritesPage> {
   static const _storageKey = 'favorite_numbers';
+  final _searchController = TextEditingController();
   List<String> favorites = [];
+  String query = '';
+  SavedListSort sort = SavedListSort.newest;
 
   @override
   void initState() {
@@ -1558,6 +1722,36 @@ class _FavoritesPageState extends State<FavoritesPage> {
   String _numberOf(String entry) {
     final separator = entry.indexOf('\t');
     return separator == -1 ? '' : entry.substring(separator + 1);
+  }
+
+  String _normalizedNumber(String value) {
+    return value.replaceAll(RegExp(r'[^0-9]'), '');
+  }
+
+  List<MapEntry<int, String>> get visibleFavorites {
+    final normalized = query.trim().toLowerCase();
+    final items = favorites.asMap().entries.where((entry) {
+      final name = _nameOf(entry.value).toLowerCase();
+      final number = _numberOf(entry.value).toLowerCase();
+      return normalized.isEmpty ||
+          name.contains(normalized) ||
+          number.contains(normalized);
+    }).toList();
+
+    switch (sort) {
+      case SavedListSort.newest:
+        items.sort((a, b) => a.key.compareTo(b.key));
+        break;
+      case SavedListSort.oldest:
+        items.sort((a, b) => b.key.compareTo(a.key));
+        break;
+      case SavedListSort.alphabetical:
+        items.sort(
+          (a, b) => _nameOf(a.value).compareTo(_nameOf(b.value)),
+        );
+        break;
+    }
+    return items;
   }
 
   Future<void> _load() async {
@@ -1620,6 +1814,38 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
     if (saved != true || name.isEmpty || number.isEmpty || !mounted) return;
 
+    final normalized = _normalizedNumber(number);
+    if (normalized.length < 7) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'تأكد من كتابة رقم صحيح',
+            textAlign: TextAlign.center,
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final duplicate = favorites.asMap().entries.any(
+      (entry) =>
+          entry.key != index &&
+          _normalizedNumber(_numberOf(entry.value)) == normalized,
+    );
+    if (duplicate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'هذا الرقم موجود في المفضلة بالفعل',
+            textAlign: TextAlign.center,
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     final entry = '$name\t$number';
     setState(() {
       if (index == null) {
@@ -1637,13 +1863,43 @@ class _FavoritesPageState extends State<FavoritesPage> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final visible = visibleFavorites;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('المفضلة'),
+          title: Text(
+            favorites.isEmpty ? 'المفضلة' : 'المفضلة (${favorites.length})',
+          ),
           actions: [
+            if (favorites.length > 1)
+              PopupMenuButton<SavedListSort>(
+                tooltip: 'الترتيب',
+                icon: const Icon(Icons.sort_rounded),
+                initialValue: sort,
+                onSelected: (value) => setState(() => sort = value),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: SavedListSort.newest,
+                    child: Text('الأحدث أولاً'),
+                  ),
+                  PopupMenuItem(
+                    value: SavedListSort.oldest,
+                    child: Text('الأقدم أولاً'),
+                  ),
+                  PopupMenuItem(
+                    value: SavedListSort.alphabetical,
+                    child: Text('ترتيب بالاسم'),
+                  ),
+                ],
+              ),
             IconButton(
               tooltip: 'إضافة رقم',
               onPressed: () => _editFavorite(),
@@ -1682,43 +1938,85 @@ class _FavoritesPageState extends State<FavoritesPage> {
                   ),
                 ),
               )
-            : ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: favorites.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  final name = _nameOf(favorites[index]);
-                  final number = _numberOf(favorites[index]);
-                  return Card(
-                    child: ListTile(
-                      leading: const CircleAvatar(
-                        child: Icon(Icons.person_rounded),
-                      ),
-                      title: Text(name),
-                      subtitle: Directionality(
-                        textDirection: TextDirection.ltr,
-                        child: Text(number, textAlign: TextAlign.right),
-                      ),
-                      onTap: () => Navigator.of(context).pop(number),
-                      trailing: PopupMenuButton<String>(
-                        onSelected: (value) {
-                          if (value == 'edit') _editFavorite(index: index);
-                          if (value == 'delete') _deleteFavorite(index);
-                        },
-                        itemBuilder: (_) => const [
-                          PopupMenuItem(
-                            value: 'edit',
-                            child: Text('تعديل'),
-                          ),
-                          PopupMenuItem(
-                            value: 'delete',
-                            child: Text('حذف'),
-                          ),
-                        ],
+            : Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (value) => setState(() => query = value),
+                      decoration: InputDecoration(
+                        hintText: 'ابحث بالاسم أو الرقم',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        suffixIcon: query.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: 'مسح البحث',
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() => query = '');
+                                },
+                                icon: const Icon(Icons.close_rounded),
+                              ),
                       ),
                     ),
-                  );
-                },
+                  ),
+                  Expanded(
+                    child: visible.isEmpty
+                        ? const Center(child: Text('لا توجد نتائج'))
+                        : ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                            itemCount: visible.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 8),
+                            itemBuilder: (context, listIndex) {
+                              final item = visible[listIndex];
+                              final sourceIndex = item.key;
+                              final name = _nameOf(item.value);
+                              final number = _numberOf(item.value);
+                              return Card(
+                                child: ListTile(
+                                  leading: CircleAvatar(
+                                    child: Text(
+                                      name.isEmpty ? '★' : name.characters.first,
+                                    ),
+                                  ),
+                                  title: Text(name),
+                                  subtitle: Directionality(
+                                    textDirection: TextDirection.ltr,
+                                    child: Text(
+                                      number,
+                                      textAlign: TextAlign.right,
+                                    ),
+                                  ),
+                                  onTap: () =>
+                                      Navigator.of(context).pop(number),
+                                  trailing: PopupMenuButton<String>(
+                                    onSelected: (value) {
+                                      if (value == 'edit') {
+                                        _editFavorite(index: sourceIndex);
+                                      }
+                                      if (value == 'delete') {
+                                        _deleteFavorite(sourceIndex);
+                                      }
+                                    },
+                                    itemBuilder: (_) => const [
+                                      PopupMenuItem(
+                                        value: 'edit',
+                                        child: Text('تعديل'),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'delete',
+                                        child: Text('حذف'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
               ),
       ),
     );
